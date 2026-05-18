@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,8 @@ type NotificationRow = {
 export default function NotificationsPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("notifications");
+  const tc = useTranslations("common");
 
   useEffect(() => {
     if (!getSession()) router.replace("/login");
@@ -42,10 +45,10 @@ export default function NotificationsPage() {
     <AppShell>
       <Card>
         <CardHeader>
-          <CardTitle>通知</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
+          {isLoading && <p className="text-sm text-muted-foreground">{tc("loading")}</p>}
           {items?.map((n) => (
             <div
               key={n.id}
@@ -54,7 +57,7 @@ export default function NotificationsPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{n.title}</p>
-                  {!n.readAt && <Badge>未讀</Badge>}
+                  {!n.readAt && <Badge>{t("unread")}</Badge>}
                   <Badge variant="outline">{n.type}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{n.body}</p>
@@ -69,7 +72,7 @@ export default function NotificationsPage() {
                   onClick={() => markRead.mutate(n.id)}
                   disabled={markRead.isPending}
                 >
-                  標為已讀
+                  {t("markRead")}
                 </Button>
               )}
             </div>

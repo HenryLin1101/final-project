@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,9 @@ type EventRow = {
 
 export default function EventsPage() {
   const router = useRouter();
+  const t = useTranslations("events");
+  const tc = useTranslations("common");
+
   useEffect(() => {
     if (!getSession()) router.replace("/login");
   }, [router]);
@@ -46,23 +49,23 @@ export default function EventsPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">事件列表</h1>
-          <p className="text-muted-foreground">依角色顯示可見範圍內的緊急事件。</p>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>事件</CardTitle>
-            <CardDescription>點選列以查看詳情、統計與回報。</CardDescription>
+            <CardTitle>{t("cardTitle")}</CardTitle>
+            <CardDescription>{t("cardDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
+            {isLoading && <p className="text-sm text-muted-foreground">{tc("loading")}</p>}
             {events && (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>標題</TableHead>
-                    <TableHead>狀態</TableHead>
-                    <TableHead>建立時間</TableHead>
+                    <TableHead>{tc("title")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
+                    <TableHead>{tc("createdAt")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
 import {
@@ -19,6 +20,8 @@ import { Button } from "@/components/ui/button";
 export default function NewEventPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("adminEvents");
+  const tc = useTranslations("common");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE">("ACTIVE");
@@ -33,9 +36,9 @@ export default function NewEventPage() {
   const errors = {
     title:
       title.trim().length === 0
-        ? "請輸入標題"
+        ? t("errorTitleRequired")
         : title.trim().length < 2
-        ? "標題至少 2 字元"
+        ? t("errorTitleLength")
         : null,
   };
   const isValid = Object.values(errors).every((e) => e === null);
@@ -56,24 +59,24 @@ export default function NewEventPage() {
     <AppShell>
       <Card className="max-w-lg">
         <CardHeader>
-          <CardTitle>建立事件</CardTitle>
-          <CardDescription>由管理員建立緊急事件並設定狀態。</CardDescription>
+          <CardTitle>{t("createPageTitle")}</CardTitle>
+          <CardDescription>{t("createPageDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="title">標題</Label>
+            <Label htmlFor="title">{tc("title")}</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="至少 2 字元"
+              placeholder={t("errorTitleLength")}
             />
             {attempted && errors.title && (
               <p className="text-xs text-destructive">{errors.title}</p>
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="desc">說明（選填）</Label>
+            <Label htmlFor="desc">{t("descriptionLabel")}</Label>
             <Input
               id="desc"
               value={description}
@@ -81,21 +84,21 @@ export default function NewEventPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label>初始狀態</Label>
+            <Label>{t("initialStatus")}</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
                 variant={status === "ACTIVE" ? "default" : "outline"}
                 onClick={() => setStatus("ACTIVE")}
               >
-                ACTIVE（立即開放回報）
+                {t("statusActiveLabel")}
               </Button>
               <Button
                 type="button"
                 variant={status === "DRAFT" ? "secondary" : "outline"}
                 onClick={() => setStatus("DRAFT")}
               >
-                DRAFT
+                {t("statusDraftLabel")}
               </Button>
             </div>
           </div>
@@ -103,7 +106,7 @@ export default function NewEventPage() {
             <p className="text-sm text-destructive">
               {mutation.error instanceof Error
                 ? mutation.error.message
-                : "建立失敗"}
+                : t("createFailed")}
             </p>
           )}
           <div className="flex gap-2">
@@ -114,13 +117,13 @@ export default function NewEventPage() {
                 if (isValid) mutation.mutate();
               }}
             >
-              {mutation.isPending ? "建立中…" : "建立"}
+              {mutation.isPending ? t("creating") : t("createButton")}
             </Button>
             <Button
               variant="outline"
               onClick={() => router.push("/admin/events")}
             >
-              取消
+              {tc("cancel")}
             </Button>
           </div>
         </CardContent>

@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
@@ -40,6 +40,9 @@ type StatsResult = {
 };
 
 function EventStatCard({ event }: { event: EventRow }) {
+  const ts = useTranslations("stats");
+  const td = useTranslations("dashboard");
+  const tc = useTranslations("common");
   const { data: stats } = useQuery({
     queryKey: ["stats", event.id],
     queryFn: () => apiFetch<StatsResult>(`/events/${event.id}/stats`),
@@ -58,30 +61,30 @@ function EventStatCard({ event }: { event: EventRow }) {
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
             <div>
               <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-muted-foreground">應回報</p>
+              <p className="text-muted-foreground">{ts("total")}</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-green-600">
                 {stats.responded}
               </p>
-              <p className="text-muted-foreground">已回報</p>
+              <p className="text-muted-foreground">{ts("responded")}</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-destructive">
                 {stats.no_response}
               </p>
-              <p className="text-muted-foreground">未回報</p>
+              <p className="text-muted-foreground">{ts("noResponse")}</p>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">載入中…</p>
+          <p className="text-sm text-muted-foreground">{tc("loading")}</p>
         )}
         <div className="mt-3">
           <Link
             href={`/events/${event.id}`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full")}
           >
-            查看團隊回報
+            {td("viewTeamReports")}
           </Link>
         </div>
       </CardContent>
@@ -91,6 +94,8 @@ function EventStatCard({ event }: { event: EventRow }) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const t = useTranslations("dashboard");
+  const tn = useTranslations("notifications");
 
   useEffect(() => {
     if (!getSession()) router.replace("/login");
@@ -108,35 +113,32 @@ export default function DashboardPage() {
     enabled: !!me && me.role === "MANAGER",
   });
 
-  const activeEvents =
-    events?.filter((e) => e.status === "ACTIVE") ?? [];
+  const activeEvents = events?.filter((e) => e.status === "ACTIVE") ?? [];
 
   return (
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">儀表板</h1>
-          <p className="text-muted-foreground">
-            檢視進行中事件、通知與依角色提供的快捷操作。
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         {me && (
           <Card>
             <CardHeader>
-              <CardTitle>您好，{me.name}</CardTitle>
+              <CardTitle>{t("greeting", { name: me.name })}</CardTitle>
               <CardDescription>
                 {me.email} · {me.role} · {me.department.name}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <Link href="/events" className={cn(buttonVariants())}>
-                查看事件
+                {t("viewEvents")}
               </Link>
               <Link
                 href="/notifications"
                 className={cn(buttonVariants({ variant: "outline" }))}
               >
-                通知
+                {tn("title")}
               </Link>
               {me.role === "ADMIN" && (
                 <>
@@ -144,25 +146,25 @@ export default function DashboardPage() {
                     href="/admin/events"
                     className={cn(buttonVariants({ variant: "outline" }))}
                   >
-                    事件管理
+                    {t("eventManagement")}
                   </Link>
                   <Link
                     href="/admin/events/new"
                     className={cn(buttonVariants({ variant: "outline" }))}
                   >
-                    建立事件
+                    {t("createEvent")}
                   </Link>
                   <Link
                     href="/admin/users"
                     className={cn(buttonVariants({ variant: "outline" }))}
                   >
-                    使用者管理
+                    {t("userManagement")}
                   </Link>
                   <Link
                     href="/admin/audit"
                     className={cn(buttonVariants({ variant: "outline" }))}
                   >
-                    稽核紀錄
+                    {t("auditLog")}
                   </Link>
                 </>
               )}
@@ -174,16 +176,16 @@ export default function DashboardPage() {
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
-                我的團隊事件
+                {t("myTeamEvents")}
               </h2>
               <p className="text-sm text-muted-foreground">
-                目前進行中事件的團隊回報狀況
+                {t("teamEventsSubtitle")}
               </p>
             </div>
             {activeEvents.length === 0 ? (
               <Card>
                 <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                  目前沒有進行中事件
+                  {t("noActiveEvents")}
                 </CardContent>
               </Card>
             ) : (

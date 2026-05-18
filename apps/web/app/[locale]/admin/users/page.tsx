@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
 import {
@@ -54,6 +55,8 @@ function UserForm({
   onCancel: () => void;
 }) {
   const qc = useQueryClient();
+  const t = useTranslations("adminUsers");
+  const tc = useTranslations("common");
   const [name, setName] = useState(initial?.name ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [password, setPassword] = useState("");
@@ -96,35 +99,35 @@ function UserForm({
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const errors = {
-    name: name.trim().length === 0 ? "請輸入姓名" : null,
+    name: name.trim().length === 0 ? t("errorName") : null,
     email:
       mode === "create"
         ? email.trim().length === 0
-          ? "請輸入 Email"
+          ? t("errorEmailRequired")
           : !emailRegex.test(email)
-          ? "Email 格式不正確"
+          ? t("errorEmailFormat")
           : null
         : null,
     password:
       mode === "create" && password.length > 0 && password.length < 6
-        ? "密碼至少 6 字元"
+        ? t("errorPasswordLength")
         : mode === "create" && password.length === 0
-        ? "請輸入密碼"
+        ? t("errorPasswordRequired")
         : null,
-    role: role === "" ? "請選擇角色" : null,
-    departmentId: departmentId === "" ? "請選擇部門" : null,
+    role: role === "" ? t("errorRole") : null,
+    departmentId: departmentId === "" ? t("errorDept") : null,
   };
   const isValid = Object.values(errors).every((e) => e === null);
 
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>{mode === "create" ? "新增使用者" : "編輯使用者"}</CardTitle>
+        <CardTitle>{mode === "create" ? t("createFormTitle") : t("editFormTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label>姓名</Label>
+            <Label>{tc("name")}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
             {attempted && errors.name && (
               <p className="text-xs text-destructive">{errors.name}</p>
@@ -132,7 +135,7 @@ function UserForm({
           </div>
           {mode === "create" && (
             <div className="space-y-1">
-              <Label>Email</Label>
+              <Label>{tc("email")}</Label>
               <Input
                 type="email"
                 value={email}
@@ -144,25 +147,25 @@ function UserForm({
             </div>
           )}
           <div className="space-y-1">
-            <Label>{mode === "create" ? "密碼" : "新密碼（選填）"}</Label>
+            <Label>{mode === "create" ? t("passwordLabel") : t("newPasswordLabel")}</Label>
             <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === "edit" ? "留空不修改" : "至少 6 字元"}
+              placeholder={mode === "edit" ? t("passwordEditPlaceholder") : t("passwordPlaceholder")}
             />
             {attempted && errors.password && (
               <p className="text-xs text-destructive">{errors.password}</p>
             )}
           </div>
           <div className="space-y-1">
-            <Label>角色</Label>
+            <Label>{tc("role")}</Label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
               className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">請選擇角色</option>
+              <option value="">{t("selectRolePlaceholder")}</option>
               {ROLES.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -172,13 +175,13 @@ function UserForm({
             )}
           </div>
           <div className="space-y-1">
-            <Label>部門</Label>
+            <Label>{tc("department")}</Label>
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
               className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">請選擇部門</option>
+              <option value="">{t("selectDeptPlaceholder")}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
@@ -188,13 +191,13 @@ function UserForm({
             )}
           </div>
           <div className="space-y-1">
-            <Label>主管（選填）</Label>
+            <Label>{t("managerLabel")}</Label>
             <select
               value={managerId}
               onChange={(e) => setManagerId(e.target.value)}
               className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">（無）</option>
+              <option value="">{t("noManager")}</option>
               {managers.map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -205,7 +208,7 @@ function UserForm({
           <p className="mt-2 text-sm text-destructive">
             {mutation.error instanceof Error
               ? mutation.error.message
-              : "操作失敗，請再試一次"}
+              : tc("operationFailed")}
           </p>
         )}
         <div className="mt-4 flex gap-2">
@@ -216,10 +219,10 @@ function UserForm({
               if (isValid) mutation.mutate();
             }}
           >
-            {mutation.isPending ? "儲存中…" : "儲存"}
+            {mutation.isPending ? tc("saving") : tc("save")}
           </Button>
           <Button variant="outline" onClick={onCancel}>
-            取消
+            {tc("cancel")}
           </Button>
         </div>
       </CardContent>
@@ -230,6 +233,8 @@ function UserForm({
 export default function AdminUsersPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("adminUsers");
+  const tc = useTranslations("common");
   const [mode, setMode] = useState<FormMode>("none");
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -284,9 +289,9 @@ export default function AdminUsersPage() {
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">使用者管理</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
           {mode === "none" && (
-            <Button onClick={openCreate}>新增使用者</Button>
+            <Button onClick={openCreate}>{t("createButton")}</Button>
           )}
         </div>
 
@@ -304,17 +309,17 @@ export default function AdminUsersPage() {
         <Card>
           <CardContent className="pt-4">
             {isLoading && (
-              <p className="text-sm text-muted-foreground">載入中…</p>
+              <p className="text-sm text-muted-foreground">{tc("loading")}</p>
             )}
             {users && (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>姓名</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>角色</TableHead>
-                    <TableHead>部門</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead>{tc("name")}</TableHead>
+                    <TableHead>{tc("email")}</TableHead>
+                    <TableHead>{tc("role")}</TableHead>
+                    <TableHead>{tc("department")}</TableHead>
+                    <TableHead className="text-right">{t("actionsColumn")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -330,7 +335,7 @@ export default function AdminUsersPage() {
                         {confirmDeleteId === u.id ? (
                           <span className="flex items-center justify-end gap-2">
                             <span className="text-sm text-destructive">
-                              確認刪除？
+                              {t("confirmDelete")}
                             </span>
                             <Button
                               size="sm"
@@ -338,14 +343,14 @@ export default function AdminUsersPage() {
                               disabled={deleteMutation.isPending}
                               onClick={() => deleteMutation.mutate(u.id)}
                             >
-                              確認
+                              {tc("confirm")}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setConfirmDeleteId(null)}
                             >
-                              取消
+                              {tc("cancel")}
                             </Button>
                           </span>
                         ) : (
@@ -355,14 +360,14 @@ export default function AdminUsersPage() {
                               variant="outline"
                               onClick={() => openEdit(u)}
                             >
-                              編輯
+                              {tc("edit")}
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => setConfirmDeleteId(u.id)}
                             >
-                              刪除
+                              {tc("delete")}
                             </Button>
                           </span>
                         )}

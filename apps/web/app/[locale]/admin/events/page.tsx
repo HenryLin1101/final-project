@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
 import {
@@ -42,6 +42,8 @@ function statusVariant(
 export default function AdminEventsPage() {
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("adminEvents");
+  const tc = useTranslations("common");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -87,9 +89,9 @@ export default function AdminEventsPage() {
   const editErrors = {
     title:
       editTitle.trim().length === 0
-        ? "請輸入標題"
+        ? t("errorTitleRequired")
         : editTitle.trim().length < 2
-        ? "標題至少 2 字元"
+        ? t("errorTitleLength")
         : null,
   };
   const editIsValid = Object.values(editErrors).every((e) => e === null);
@@ -111,31 +113,28 @@ export default function AdminEventsPage() {
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">事件管理</h1>
-          <Link
-            href="/admin/events/new"
-            className={cn(buttonVariants())}
-          >
-            建立事件
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <Link href="/admin/events/new" className={cn(buttonVariants())}>
+            {t("createButton")}
           </Link>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>所有事件</CardTitle>
+            <CardTitle>{t("allEventsTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading && (
-              <p className="text-sm text-muted-foreground">載入中…</p>
+              <p className="text-sm text-muted-foreground">{tc("loading")}</p>
             )}
             {events && (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>標題</TableHead>
-                    <TableHead>狀態</TableHead>
-                    <TableHead>建立時間</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead>{tc("title")}</TableHead>
+                    <TableHead>{tc("status")}</TableHead>
+                    <TableHead>{tc("createdAt")}</TableHead>
+                    <TableHead className="text-right">{tc("description")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -149,7 +148,7 @@ export default function AdminEventsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {new Date(e.createdAt).toLocaleDateString("zh-TW")}
+                          {new Date(e.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="flex items-center justify-end gap-2">
@@ -159,7 +158,7 @@ export default function AdminEventsPage() {
                                 buttonVariants({ variant: "outline", size: "sm" })
                               )}
                             >
-                              查看
+                              {tc("view")}
                             </Link>
                             <Button
                               size="sm"
@@ -168,7 +167,7 @@ export default function AdminEventsPage() {
                                 editingId === e.id ? cancelEdit() : openEdit(e)
                               }
                             >
-                              {editingId === e.id ? "收起" : "編輯"}
+                              {editingId === e.id ? tc("collapse") : tc("edit")}
                             </Button>
                           </span>
                         </TableCell>
@@ -179,7 +178,7 @@ export default function AdminEventsPage() {
                             <div className="rounded-lg border bg-muted/30 p-4">
                               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div className="space-y-1">
-                                  <Label>標題</Label>
+                                  <Label>{tc("title")}</Label>
                                   <Input
                                     value={editTitle}
                                     onChange={(ev) =>
@@ -191,7 +190,7 @@ export default function AdminEventsPage() {
                                   )}
                                 </div>
                                 <div className="space-y-1">
-                                  <Label>狀態</Label>
+                                  <Label>{tc("status")}</Label>
                                   <select
                                     value={editStatus}
                                     onChange={(e) => setEditStatus(e.target.value)}
@@ -203,7 +202,7 @@ export default function AdminEventsPage() {
                                   </select>
                                 </div>
                                 <div className="space-y-1 sm:col-span-2">
-                                  <Label>說明（選填）</Label>
+                                  <Label>{t("descriptionLabel")}</Label>
                                   <Input
                                     value={editDesc}
                                     onChange={(ev) =>
@@ -216,7 +215,7 @@ export default function AdminEventsPage() {
                                 <p className="mt-2 text-sm text-destructive">
                                   {updateMutation.error instanceof Error
                                     ? updateMutation.error.message
-                                    : "更新失敗"}
+                                    : t("updateFailed")}
                                 </p>
                               )}
                               <div className="mt-4 flex gap-2">
@@ -234,14 +233,14 @@ export default function AdminEventsPage() {
                                   }}
                                 >
                                   {updateMutation.isPending
-                                    ? "儲存中…"
-                                    : "儲存"}
+                                    ? tc("saving")
+                                    : tc("save")}
                                 </Button>
                                 <Button
                                   variant="outline"
                                   onClick={cancelEdit}
                                 >
-                                  取消
+                                  {tc("cancel")}
                                 </Button>
                               </div>
                             </div>

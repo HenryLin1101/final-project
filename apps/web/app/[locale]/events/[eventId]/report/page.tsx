@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { apiFetch, getSession } from "@/lib/api";
 import {
@@ -21,6 +23,7 @@ export default function ReportPage() {
   const eventId = params.eventId;
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations("report");
   const [status, setStatus] = useState<"SAFE" | "NEED_HELP">("SAFE");
   const [message, setMessage] = useState("");
 
@@ -52,7 +55,7 @@ export default function ReportPage() {
   if (event && event.status !== "ACTIVE") {
     return (
       <AppShell>
-        <p className="text-muted-foreground">此事件未開放回報。</p>
+        <p className="text-muted-foreground">{t("notActive")}</p>
       </AppShell>
     );
   }
@@ -61,50 +64,50 @@ export default function ReportPage() {
     <AppShell>
       <Card className="max-w-lg">
         <CardHeader>
-          <CardTitle>安全回報</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
           <CardDescription>{event?.title}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>狀態</Label>
+            <Label>{t("statusLabel")}</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
                 variant={status === "SAFE" ? "default" : "outline"}
                 onClick={() => setStatus("SAFE")}
               >
-                安全
+                {t("safe")}
               </Button>
               <Button
                 type="button"
                 variant={status === "NEED_HELP" ? "destructive" : "outline"}
                 onClick={() => setStatus("NEED_HELP")}
               >
-                需要協助
+                {t("needHelp")}
               </Button>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="msg">補充說明（選填）</Label>
+            <Label htmlFor="msg">{t("messageLabel")}</Label>
             <Input
               id="msg"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="位置、需求、聯絡方式等"
+              placeholder={t("messagePlaceholder")}
             />
           </div>
           {mutation.isError && (
             <p className="text-sm text-destructive">
               {mutation.error instanceof Error
                 ? mutation.error.message
-                : "送出失敗"}
+                : t("submitFailed")}
             </p>
           )}
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? "送出中…" : "送出回報"}
+            {mutation.isPending ? t("submitting") : t("submit")}
           </Button>
         </CardContent>
       </Card>
