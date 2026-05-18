@@ -20,7 +20,7 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     }>();
     const res = context.switchToHttp().getResponse<{ statusCode: number }>();
     const startMs = Date.now();
-    if (req.url === '/metrics') return next.handle();
+    if (req.url.startsWith('/metrics')) return next.handle();
 
     const record = (statusCode: string) => {
       const method = req.method;
@@ -30,7 +30,7 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     };
 
     return next.handle().pipe(
-      tap(() => record(String(res.statusCode ?? 200))),
+      tap(() => record(String(res.statusCode))),
       catchError((err: unknown) => {
         // HttpExceptions carry a numeric .status; fallback to 500
         const status =
