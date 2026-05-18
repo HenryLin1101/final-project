@@ -1,4 +1,3 @@
-// apps/api/src/metrics/http-metrics.interceptor.ts
 import {
   Injectable,
   NestInterceptor,
@@ -21,6 +20,7 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     }>();
     const res = context.switchToHttp().getResponse<{ statusCode: number }>();
     const startMs = Date.now();
+    if (req.url === '/metrics') return next.handle();
 
     const record = (statusCode: string) => {
       const method = req.method;
@@ -30,7 +30,7 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     };
 
     return next.handle().pipe(
-      tap(() => record(String(res.statusCode))),
+      tap(() => record(String(res.statusCode ?? 200))),
       catchError((err: unknown) => {
         // HttpExceptions carry a numeric .status; fallback to 500
         const status =
