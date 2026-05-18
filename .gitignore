@@ -7,8 +7,10 @@ dist
 coverage
 .DS_Store
 
-# Personal / AI tooling — not for team repo
+# Personal
 CLAUDE.md
 TODO.md
 test.txt
 project-overview.png
+docs/superpowers/
+todo4.txt

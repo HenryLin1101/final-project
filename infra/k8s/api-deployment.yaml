@@ -7,7 +7,6 @@ metadata:
   labels:
     app: safety-api
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: safety-api

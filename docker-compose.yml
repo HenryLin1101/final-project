@@ -41,8 +41,8 @@ services:
       - /bin/sh
       - -c
       - |
-        /app/node_modules/.bin/prisma migrate deploy --schema=/app/apps/api/prisma/schema.prisma
-        cd /app/apps/api && exec node dist/main.js
+        /app/apps/api/node_modules/.bin/prisma migrate deploy --schema=/app/apps/api/prisma/schema.prisma
+        cd /app/apps/api && exec node dist/src/main.js
 
   web:
     build:
@@ -71,6 +71,7 @@ services:
     image: prom/prometheus:v2.54.1
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
     ports:
       - "9090:9090"
     depends_on:

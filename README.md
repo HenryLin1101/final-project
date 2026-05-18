@@ -110,7 +110,7 @@ docker compose up --build
 - Grafana：**http://localhost:3002**（admin / admin）  
 - Postgres / Redis 埠對外映射見 `docker-compose.yml`。
 
-API 容器啟動時會執行 `prisma migrate deploy` 再啟動 `node dist/main.js`。
+API 容器啟動時會執行 `prisma migrate deploy` 再啟動 `node dist/src/main.js`。
 
 ## 測試
 
@@ -138,19 +138,27 @@ final-project/
 │   ├── api/                 # NestJS + Prisma
 │   └── web/                 # Next.js 14 + shadcn/ui + TanStack Query
 ├── infra/
-│   ├── nginx/
+│   ├── nginx/               # 反向代理設定
 │   ├── prometheus/
+│   │   ├── prometheus.yml   # scrape 設定（15s interval）
+│   │   └── rules/
+│   │       └── api-alerts.yml  # HighErrorRate / HighLatency / PodDown
 │   ├── grafana/provisioning/
-│   └── k6/
+│   │   ├── datasources/     # Prometheus 資料源（uid: prometheus）
+│   │   └── dashboards/      # API Overview dashboard（自動載入）
+│   ├── k8s/                 # kind / minikube 用 manifest
+│   │   └── hpa.yaml         # HPA（minReplicas:2, maxReplicas:10）
+│   │   └── gcp/             # GKE 用 manifest（LoadBalancer service）
+│   └── k6/                  # 健康檢查負載測試
 ├── docker-compose.yml
 ├── pnpm-workspace.yaml
 ├── .env.example
 └── README.md
 ```
 
-## Kubernetes（之後擴展）
+## Kubernetes
 
-本 repo 的 **Docker Compose** 可視為「單節點上的多容器預演」；遷到 **K8s** 時通常這樣對應（實際 YAML 可依叢集版本與課程要求再寫）：
+本 repo 的 **Docker Compose** 可視為「單節點上的多容器預演」；`infra/k8s/` 已包含 HPA 等 manifest，遷到 **K8s** 時通常這樣對應：
 
 | Compose 概念 | Kubernetes 常見做法 |
 |----------------|----------------------|
@@ -167,7 +175,13 @@ final-project/
 
 **機密**：`JWT_SECRET`、`DATABASE_URL`、`REDIS_URL` 一律走 **`Secret`**（必要時搭配 External Secrets / 雲端 Secret Manager），不要進 image。
 
-之後若要在本 repo 內放範例 manifest，可新增目錄 `infra/k8s/`（例如 `deployment-api.yaml`、`ingress.yaml`），與 Compose 並存即可。
+`infra/k8s/hpa.yaml`（及 `gcp/hpa.yaml`）已實作 `autoscaling/v2` HPA，CPU 60% / 記憶體 70% 觸發擴縮，最少 2 個 replica 確保滾動更新期間不中斷。套用方式：
+
+```bash
+kubectl apply -f infra/k8s/namespace.yaml
+kubectl apply -f infra/k8s/hpa.yaml
+kubectl get hpa -n safety-demo
+```
 
 ## 進階與限制（報告可撰寫方向）
 

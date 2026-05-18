@@ -1,0 +1,33 @@
+groups:
+  - name: api
+    rules:
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+          / (sum(rate(http_requests_total[5m])) > 0) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx error rate > 5%"
+          description: "The API is returning more than 5% 5xx responses over the last 5 minutes."
+
+      - alert: HighLatency
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency > 2s"
+          description: "The p95 response time has been above 2 seconds for 5 minutes."
+
+      - alert: PodDown
+        expr: up{job="safety-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API pod is down"
+          description: "The safety-api job has been unreachable for more than 1 minute."

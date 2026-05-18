@@ -46,7 +46,7 @@ export default function NewEventPage() {
         method: "POST",
         body: JSON.stringify({ title, description, status }),
       }),
-    onSuccess: (data) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["events"] });
       router.push("/admin/events");
     },

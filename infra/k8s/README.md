@@ -96,6 +96,30 @@ kubectl get pods,svc -n safety-demo
 
 ---
 
+## 6.5 啟用 HPA（Horizontal Pod Autoscaler）
+
+HPA 需要 **metrics-server** 已安裝（GKE 預設有；kind/minikube 需手動啟用）。
+
+**kind 啟用 metrics-server：**
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+# kind 需要額外加 --kubelet-insecure-tls 旗標：
+kubectl patch deployment metrics-server -n kube-system \
+  --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+**套用 HPA：**
+```bash
+kubectl apply -f infra/k8s/hpa.yaml
+kubectl get hpa -n safety-demo          # 確認 HPA 狀態
+kubectl describe hpa api-hpa -n safety-demo  # 查看擴縮容事件
+```
+
+`TARGETS` 欄位顯示 `<unknown>` 屬正常，約 60 秒後 metrics-server 有資料才會變成百分比。
+
+---
+
 ## 7. 從筆電連到叢集內 API
 
 ```bash
