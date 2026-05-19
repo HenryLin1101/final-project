@@ -2,6 +2,8 @@
 
 企業緊急事件安全回報系統：讓員工在事件期間快速回報安全狀態，主管掌握轄下回報進度，管理員建立事件、維護使用者並檢視全公司報表。專案採 **Monorepo**（pnpm workspaces）、**Next.js 14** 前端、**NestJS** REST API、**PostgreSQL + Prisma**、**Docker Compose** 編排（含 **Redis**、**Nginx**、**Prometheus**、**Grafana**），展示雲原生常見的可觀測性、健康檢查與多容器部署。前端支援**繁體中文 / English 雙語切換**（next-intl，URL-based locale routing）。API 已實作 **Redis-backed Rate Limiting**（全域 60 req/min，登入 5 req/min，安全回報 10 req/min）與**讀取快取**（事件列表 30s TTL、部門列表 300s TTL），Redis 不可用時自動 graceful degradation。
 
+前端經過完整 UI/UX 改版：**語意色彩系統**（ACTIVE 藍、DRAFT 橘、SAFE 綠、NEED_HELP 紅）、**Dashboard 摘要統計卡**、**緊急回報大型選擇卡**、**麵包屑導覽**、Header active 狀態、通知空狀態引導，並修正全站 Hydration error。
+
 ## 架構總覽
 
 ```mermaid
@@ -206,6 +208,7 @@ kubectl get pods -n safety-demo -w
 
 ## 進階與限制（報告可撰寫方向）
 
+- **UI/UX（已實作）**：語意色彩系統（CSS 變數 `--success`/`--warning`/`--info`，含深色模式）；`StatusBadge` 元件統一全站狀態顯示；`Breadcrumb` 元件套用於所有二、三層頁面；Dashboard 摘要卡（進行中事件數、未讀通知數）；緊急回報頁改為大型卡片選擇器；Header 導覽 active 狀態與觸控目標強化；通知頁空狀態引導；Admin 欄位、角色 badge、稽核 action badge 分色；全站日期格式統一（`2026/05/17`）；修正所有頁面 SSR/Client hydration mismatch。
 - **i18n**：前端已實作繁體中文 / English 雙語（`next-intl` v4，URL-based locale routing，Header 語言切換器）。後端錯誤訊息與通知內文可進一步改為 i18n template key。  
 - **高流量防護（已實作）**：API 以 `@nestjs/throttler` + Redis-backed storage 實現速率限制——全域 60 req/60s、登入 5 req/60s、安全回報 10 req/60s；`/health`、`/metrics` 排除限流。Lua script 確保 INCR + PEXPIRE 原子性。Redis 不可用時 graceful degradation（允許所有請求，不拋 500）。  
 - **讀取快取（已實作）**：`GET /events` 依角色分為三組 key（`cache:events:list:ADMIN/MANAGER/EMPLOYEE`，TTL 30s）；`GET /departments` 單一 key（TTL 300s）。寫入時（create/update/delete）立即 invalidate，確保 Admin 狀態變更即時可見。  
