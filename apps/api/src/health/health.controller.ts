@@ -20,7 +20,12 @@ export class HealthController {
   @Get('ready')
   async ready() {
     await this.prisma.$queryRaw`SELECT 1`;
-    const redis = await this.redis.ping();
+    let redis: 'PONG' | 'SKIPPED' | 'UNAVAILABLE' = 'SKIPPED';
+    try {
+      redis = await this.redis.ping();
+    } catch {
+      redis = this.redis.isEnabled() ? 'UNAVAILABLE' : 'SKIPPED';
+    }
     return { status: 'ready', postgres: true, redis };
   }
 }
