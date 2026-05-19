@@ -1,0 +1,48 @@
+# 將 __IMAGE__ 換成 Web 映像路徑；NEXT_PUBLIC_API_URL 須在 docker build 時帶入（見 README §14）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: safety-demo
+  labels:
+    app: safety-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: safety-web
+  template:
+    metadata:
+      labels:
+        app: safety-web
+    spec:
+      containers:
+        - name: web
+          image: __IMAGE__
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /zh-TW/login
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /zh-TW/login
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

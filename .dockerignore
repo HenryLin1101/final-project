@@ -6,3 +6,7 @@ coverage
 *.md
 .env
 .env.*
+**/.env
+apps/api/.env
+apps/web/.env
+apps/web/.env.local
