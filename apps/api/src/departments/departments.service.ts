@@ -7,8 +7,8 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 
-const DEPT_CACHE_KEY = 'cache:departments:list';
-const DEPT_CACHE_TTL = 300;
+export const DEPT_CACHE_KEY = 'cache:departments:list';
+export const DEPT_CACHE_TTL = 300;
 
 @Injectable()
 export class DepartmentsService {
@@ -73,6 +73,10 @@ export class DepartmentsService {
   }
 
   async remove(id: string) {
+    const d = await this.prisma.department.findUnique({ where: { id } });
+    if (!d) {
+      throw new NotFoundException();
+    }
     await this.prisma.department.delete({ where: { id } });
     await this.clearDeptCache();
     return { ok: true };

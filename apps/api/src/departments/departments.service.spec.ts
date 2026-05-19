@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { DepartmentsService } from './departments.service';
+import { DepartmentsService, DEPT_CACHE_KEY, DEPT_CACHE_TTL } from './departments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../scope/scope.service';
 import { RedisService } from '../redis/redis.service';
@@ -67,12 +67,12 @@ describe('DepartmentsService - Redis cache', () => {
     it('queries DB and stores result in cache on cache miss', async () => {
       const result = await service.findAll();
 
-      expect(redis.get).toHaveBeenCalledWith('cache:departments:list');
+      expect(redis.get).toHaveBeenCalledWith(DEPT_CACHE_KEY);
       expect(prismaDept.findMany).toHaveBeenCalled();
       expect(redis.set).toHaveBeenCalledWith(
-        'cache:departments:list',
+        DEPT_CACHE_KEY,
         JSON.stringify([mockDept]),
-        300,
+        DEPT_CACHE_TTL,
       );
       expect(result).toEqual([mockDept]);
     });
@@ -92,7 +92,7 @@ describe('DepartmentsService - Redis cache', () => {
   describe('create()', () => {
     it('invalidates departments cache after create', async () => {
       await service.create({ name: 'New Dept' });
-      expect(redis.del).toHaveBeenCalledWith('cache:departments:list');
+      expect(redis.del).toHaveBeenCalledWith(DEPT_CACHE_KEY);
       expect(redis.del).toHaveBeenCalledTimes(1);
     });
   });
@@ -100,7 +100,7 @@ describe('DepartmentsService - Redis cache', () => {
   describe('update()', () => {
     it('invalidates departments cache after update', async () => {
       await service.update('d1', { name: 'HR Updated' });
-      expect(redis.del).toHaveBeenCalledWith('cache:departments:list');
+      expect(redis.del).toHaveBeenCalledWith(DEPT_CACHE_KEY);
       expect(redis.del).toHaveBeenCalledTimes(1);
     });
 
@@ -117,8 +117,15 @@ describe('DepartmentsService - Redis cache', () => {
   describe('remove()', () => {
     it('invalidates departments cache after remove', async () => {
       await service.remove('d1');
-      expect(redis.del).toHaveBeenCalledWith('cache:departments:list');
+      expect(redis.del).toHaveBeenCalledWith(DEPT_CACHE_KEY);
       expect(redis.del).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws NotFoundException when department does not exist', async () => {
+      prismaDept.findUnique.mockResolvedValue(null);
+      await expect(service.remove('bad-id')).rejects.toThrow(NotFoundException);
+      expect(redis.del).not.toHaveBeenCalled();
+      expect(prismaDept.delete).not.toHaveBeenCalled();
     });
   });
 });
