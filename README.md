@@ -1,6 +1,6 @@
 # Employee Safety & Response
 
-企業緊急事件安全回報系統：讓員工在事件期間快速回報安全狀態，主管掌握轄下回報進度，管理員建立事件、維護使用者並檢視全公司報表。專案採 **Monorepo**（pnpm workspaces）、**Next.js 14** 前端、**NestJS** REST API、**PostgreSQL + Prisma**、**Docker Compose** 編排（含 **Redis**、**Nginx**、**Prometheus**、**Grafana**），展示雲原生常見的可觀測性、健康檢查與多容器部署。前端支援**繁體中文 / English 雙語切換**（next-intl，URL-based locale routing）。
+企業緊急事件安全回報系統：讓員工在事件期間快速回報安全狀態，主管掌握轄下回報進度，管理員建立事件、維護使用者並檢視全公司報表。專案採 **Monorepo**（pnpm workspaces）、**Next.js 14** 前端、**NestJS** REST API、**PostgreSQL + Prisma**、**Docker Compose** 編排（含 **Redis**、**Nginx**、**Prometheus**、**Grafana**），展示雲原生常見的可觀測性、健康檢查與多容器部署。前端支援**繁體中文 / English 雙語切換**（next-intl，URL-based locale routing）。API 已實作 **Redis-backed Rate Limiting**（全域 60 req/min，登入 5 req/min，安全回報 10 req/min）與**讀取快取**（事件列表 30s TTL、部門列表 300s TTL），Redis 不可用時自動 graceful degradation。
 
 ## 架構總覽
 
@@ -207,7 +207,8 @@ kubectl get pods -n safety-demo -w
 ## 進階與限制（報告可撰寫方向）
 
 - **i18n**：前端已實作繁體中文 / English 雙語（`next-intl` v4，URL-based locale routing，Header 語言切換器）。後端錯誤訊息與通知內文可進一步改為 i18n template key。  
-- **高流量**：API 已接 Redis，可擴充 rate limit、快取熱門 `stats`、非同步通知佇列。  
+- **高流量防護（已實作）**：API 以 `@nestjs/throttler` + Redis-backed storage 實現速率限制——全域 60 req/60s、登入 5 req/60s、安全回報 10 req/60s；`/health`、`/metrics` 排除限流。Lua script 確保 INCR + PEXPIRE 原子性。Redis 不可用時 graceful degradation（允許所有請求，不拋 500）。  
+- **讀取快取（已實作）**：`GET /events` 依角色分為三組 key（`cache:events:list:ADMIN/MANAGER/EMPLOYEE`，TTL 30s）；`GET /departments` 單一 key（TTL 300s）。寫入時（create/update/delete）立即 invalidate，確保 Admin 狀態變更即時可見。  
 - **可靠性 / SPOF**：Compose 為單節點展示；生產環境可改 **多 API 副本 + Nginx upstream**、**DB 主從**、**Redis Sentinel**、**K8s readiness/liveness**（對應本專案 `/health`、`/health/ready`）。  
 - **認證**：示範使用 `localStorage` 存 JWT；生產建議 **HttpOnly Cookie** 或 **BFF**。
 
