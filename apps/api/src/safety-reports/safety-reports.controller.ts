@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { SafetyReportsService } from './safety-reports.service';
 import {
@@ -12,6 +13,7 @@ import { SubmitSafetyReportDto } from './dto/submit-safety-report.dto';
 export class SafetyReportsController {
   constructor(private readonly reports: SafetyReportsService) {}
 
+  @Throttle({ global: { ttl: 60000, limit: 10 } })
   @Post('reports')
   @Roles(Role.EMPLOYEE, Role.MANAGER)
   submit(

@@ -6,31 +6,66 @@ import {
 import { AuditAction, EventStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RedisService } from '../redis/redis.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+
+const EVENT_CACHE_KEYS = [
+  'cache:events:list:ADMIN',
+  'cache:events:list:MANAGER',
+  'cache:events:list:EMPLOYEE',
+] as const;
 
 @Injectable()
 export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
   ) {}
 
   async findAll(actor: AuthUser) {
-    if (actor.role === Role.ADMIN) {
-      return this.prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+    const cacheKey = `cache:events:list:${actor.role}`;
+
+    if (this.redis.isEnabled()) {
+      try {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          try {
+            return JSON.parse(cached);
+          } catch {
+            // corrupt cache entry — fall through to DB
+          }
+        }
+      } catch {
+        // Redis unavailable — fall through to DB
+      }
     }
-    if (actor.role === Role.MANAGER) {
-      return this.prisma.event.findMany({
+
+    let events: Awaited<ReturnType<typeof this.prisma.event.findMany>>;
+    if (actor.role === Role.ADMIN) {
+      events = await this.prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+    } else if (actor.role === Role.MANAGER) {
+      events = await this.prisma.event.findMany({
         where: { status: { in: [EventStatus.ACTIVE, EventStatus.CLOSED] } },
         orderBy: { createdAt: 'desc' },
       });
+    } else {
+      events = await this.prisma.event.findMany({
+        where: { status: EventStatus.ACTIVE },
+        orderBy: { createdAt: 'desc' },
+      });
     }
-    return this.prisma.event.findMany({
-      where: { status: EventStatus.ACTIVE },
-      orderBy: { createdAt: 'desc' },
-    });
+
+    if (this.redis.isEnabled()) {
+      try {
+        await this.redis.set(cacheKey, JSON.stringify(events), 30);
+      } catch {
+        // Redis write failure — non-fatal, serve result without caching
+      }
+    }
+    return events;
   }
 
   async findOne(id: string, actor: AuthUser) {
@@ -60,6 +95,7 @@ export class EventsService {
       resourceId: event.id,
       payload: { title: event.title, status: event.status },
     });
+    await this.clearEventCache();
     return event;
   }
 
@@ -83,6 +119,12 @@ export class EventsService {
       resourceId: id,
       payload: JSON.parse(JSON.stringify(dto)) as Prisma.InputJsonValue,
     });
+    await this.clearEventCache();
     return updated;
+  }
+
+  private async clearEventCache(): Promise<void> {
+    if (!this.redis.isEnabled()) return;
+    await Promise.all(EVENT_CACHE_KEYS.map((k) => this.redis.del(k)));
   }
 }

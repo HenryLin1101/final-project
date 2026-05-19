@@ -34,6 +34,13 @@ function redisTestDouble() {
     isEnabled: () => false,
     ping: jest.fn().mockResolvedValue('SKIPPED' as const),
     setNx: jest.fn().mockResolvedValue(true),
+    incr: jest.fn().mockResolvedValue(0),
+    pexpire: jest.fn().mockResolvedValue(undefined),
+    incrPexpire: jest.fn().mockResolvedValue(0),
+    pttl: jest.fn().mockResolvedValue(0),
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
     onModuleDestroy: jest.fn().mockResolvedValue(undefined),
   } as unknown as RedisService;
 }
