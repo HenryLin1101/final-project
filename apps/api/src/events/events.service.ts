@@ -125,6 +125,10 @@ export class EventsService {
 
   private async clearEventCache(): Promise<void> {
     if (!this.redis.isEnabled()) return;
-    await Promise.all(EVENT_CACHE_KEYS.map((k) => this.redis.del(k)));
+    try {
+      await Promise.all(EVENT_CACHE_KEYS.map((k) => this.redis.del(k)));
+    } catch {
+      // non-fatal — stale cache will expire naturally within TTL
+    }
   }
 }

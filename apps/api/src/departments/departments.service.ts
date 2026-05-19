@@ -98,6 +98,10 @@ export class DepartmentsService {
 
   private async clearDeptCache(): Promise<void> {
     if (!this.redis.isEnabled()) return;
-    await this.redis.del(DEPT_CACHE_KEY);
+    try {
+      await this.redis.del(DEPT_CACHE_KEY);
+    } catch {
+      // non-fatal — stale cache will expire naturally within TTL
+    }
   }
 }
