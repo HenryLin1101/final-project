@@ -62,5 +62,6 @@ describe('RedisThrottlerStorage', () => {
     const result = await storage.increment('test-key', 60000, 60, 0, 'global');
 
     expect(result.timeToExpire).toBe(0);
+    expect(redis.pexpire).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerStorage } from '@nestjs/throttler';
-import { ThrottlerStorageRecord } from '@nestjs/throttler/dist/throttler-storage-record.interface';
 import { RedisService } from '../../redis/redis.service';
+
+type ThrottlerStorageRecord = Awaited<ReturnType<ThrottlerStorage['increment']>>;
 
 @Injectable()
 export class RedisThrottlerStorage implements ThrottlerStorage {
@@ -10,9 +11,9 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
   async increment(
     key: string,
     ttl: number,
-    limit: number,
-    blockDuration: number,
-    throttlerName: string,
+    _limit: number,
+    _blockDuration: number,
+    _throttlerName: string,
   ): Promise<ThrottlerStorageRecord> {
     if (!this.redis.isEnabled()) {
       return { totalHits: 0, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 };
