@@ -235,7 +235,6 @@ export default function AdminUsersPage() {
   const qc = useQueryClient();
   const t = useTranslations("adminUsers");
   const tc = useTranslations("common");
-  const td = useTranslations("dashboard");
   const [mode, setMode] = useState<FormMode>("none");
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);

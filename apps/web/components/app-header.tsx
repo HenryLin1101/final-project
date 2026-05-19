@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, Link, usePathname } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearSession, getSession } from "@/lib/api";
 import type { StoredSession } from "@/lib/api";
@@ -98,23 +99,25 @@ export function AppHeader() {
           )}
         </nav>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center rounded border text-xs">
+          <div className="flex items-center gap-0.5 text-xs">
+            <Globe className="mr-0.5 h-3.5 w-3.5 text-muted-foreground" />
             <button
               onClick={() => switchLocale("zh-TW")}
-              className={`px-3 py-1.5 transition-colors ${
+              className={`rounded px-1.5 py-1 transition-colors ${
                 locale === "zh-TW"
-                  ? "bg-foreground text-background"
-                  : "hover:bg-muted"
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               中文
             </button>
+            <span className="select-none text-muted-foreground/40">·</span>
             <button
               onClick={() => switchLocale("en")}
-              className={`px-3 py-1.5 transition-colors ${
+              className={`rounded px-1.5 py-1 transition-colors ${
                 locale === "en"
-                  ? "bg-foreground text-background"
-                  : "hover:bg-muted"
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               EN
