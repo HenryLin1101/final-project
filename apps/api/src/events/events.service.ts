@@ -33,7 +33,7 @@ export class EventsService {
       if (cached) return JSON.parse(cached);
     }
 
-    let events;
+    let events: Awaited<ReturnType<typeof this.prisma.event.findMany>>;
     if (actor.role === Role.ADMIN) {
       events = await this.prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
     } else if (actor.role === Role.MANAGER) {
