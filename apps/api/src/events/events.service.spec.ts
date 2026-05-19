@@ -113,11 +113,21 @@ describe('EventsService - Redis cache', () => {
         expect.any(String),
         30,
       );
+      expect(prismaEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: { in: [EventStatus.ACTIVE, EventStatus.CLOSED] } },
+        }),
+      );
     });
 
     it('uses EMPLOYEE-scoped cache key for EMPLOYEE role', async () => {
       await service.findAll(employeeUser);
       expect(redis.get).toHaveBeenCalledWith('cache:events:list:EMPLOYEE');
+      expect(prismaEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: EventStatus.ACTIVE },
+        }),
+      );
     });
 
     it('bypasses cache entirely when Redis is disabled', async () => {
@@ -156,6 +166,8 @@ describe('EventsService - Redis cache', () => {
       await expect(service.update('bad-id', adminUser, {})).rejects.toThrow(
         NotFoundException,
       );
+      expect(redis.del).not.toHaveBeenCalled();
+      expect(prismaEvent.update).not.toHaveBeenCalled();
     });
   });
 });
