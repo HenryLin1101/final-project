@@ -114,6 +114,29 @@ docker compose up --build
 
 API 容器啟動時會執行 `prisma migrate deploy` 再啟動 `node dist/src/main.js`。
 
+## CI（GitHub Actions）
+
+每次 push 至 `main` / `master` 或開 PR 時，[`.github/workflows/ci.yml`](.github/workflows/ci.yml) 會自動執行：
+
+| Job | 內容 |
+|-----|------|
+| **Lint, test & build** | `pnpm install --frozen-lockfile` → `prisma generate` → lint → 單元測試 → E2E → build |
+| **Docker build** | 驗證 `apps/api`、`apps/web` 的 Dockerfile 能成功建置 |
+
+本機可跑相同檢查：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter api exec prisma generate
+pnpm lint && pnpm test && pnpm test:e2e && pnpm build
+docker build -f apps/api/Dockerfile -t safety-api:ci .
+docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost/api/v1 -t safety-web:ci .
+```
+
+**Branch protection**：請 repo admin 依 [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md) 設定 main 必須通過上述 CI 才能 merge。
+
+**環境變數 / Secret 對照**：[`.github/env-and-secrets.md`](.github/env-and-secrets.md)
+
 ## 測試
 
 ```bash

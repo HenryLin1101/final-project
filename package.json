@@ -14,6 +14,15 @@
     "db:generate": "pnpm --filter api exec prisma generate"
   },
   "packageManager": "pnpm@10.33.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "bcrypt",
+      "prisma"
+    ]
+  },
   "devDependencies": {
     "concurrently": "^9.2.1"
   }
