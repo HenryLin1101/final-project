@@ -10,11 +10,28 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
+import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 /** 無本機 Postgres/Redis 時仍可跑 smoke e2e（CI、同學電腦） */
 function prismaTestDouble() {
+  const adminUser = {
+    id: 'admin-1',
+    email: 'admin@demo.com',
+    role: Role.ADMIN,
+    departmentId: 'dept-1',
+    managerId: null,
+  };
+  const employeeUser = {
+    id: 'emp-1',
+    email: 'employee1@demo.com',
+    role: Role.EMPLOYEE,
+    departmentId: 'dept-1',
+    managerId: 'mgr-1',
+  };
+
   return {
     onModuleInit: async () => {},
     onModuleDestroy: async () => {},
@@ -26,6 +43,47 @@ function prismaTestDouble() {
         ? arg({ auditLog: { findMany: jest.fn(), count: jest.fn() } })
         : Promise.resolve([]),
     ),
+    user: {
+      findUnique: jest.fn().mockImplementation(({ where }: { where: { id?: string; email?: string } }) => {
+        if (where.id === 'admin-1' || where.email === 'admin@demo.com') {
+          return Promise.resolve({ ...adminUser, passwordHash: '$2b$10$placeholder' });
+        }
+        if (where.id === 'emp-1' || where.email === 'employee1@demo.com') {
+          return Promise.resolve({ ...employeeUser, passwordHash: '$2b$10$placeholder', department: { id: 'dept-1', name: 'Eng' } });
+        }
+        return Promise.resolve(null);
+      }),
+    },
+    event: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'evt-1',
+        title: 'Test Event',
+        status: 'ACTIVE',
+      }),
+      create: jest.fn().mockResolvedValue({ id: 'evt-new', title: 'New Event', status: 'DRAFT' }),
+    },
+    safetyReport: {
+      upsert: jest.fn().mockResolvedValue({ id: 'rpt-1', status: 'SAFE' }),
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    auditLog: {
+      create: jest.fn().mockResolvedValue({}),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    notification: {
+      create: jest.fn().mockResolvedValue({}),
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    department: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({}),
+    },
   } as unknown as PrismaService;
 }
 
@@ -80,6 +138,14 @@ describe('API (e2e)', () => {
     await app.close();
   });
 
+  /** 用 JwtService sign 一個測試用 token，bypass 需要 DB 的登入流程 */
+  function signTestToken(payload: { sub: string; email: string; role: Role }) {
+    const jwtService = app.get(JwtService);
+    return jwtService.sign(payload);
+  }
+
+  // ── Health checks ──────────────────────────────────────────────────────────
+
   it('GET /health returns ok', async () => {
     const res = await request(app.getHttpServer()).get('/health');
     expect(res.status).toBe(200);
@@ -91,5 +157,115 @@ describe('API (e2e)', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ready');
     expect(res.body.postgres).toBe(true);
+  });
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
+
+  describe('POST /api/v1/auth/login', () => {
+    it('returns 401 on wrong password', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'admin@demo.com', password: 'WrongPassword!' });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 401 on non-existent email', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'ghost@demo.com', password: 'Password123!' });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 400 on invalid request body (no email)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ password: 'Password123!' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ── Auth guard ─────────────────────────────────────────────────────────────
+
+  it('GET /api/v1/events returns 401 without token', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/events');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/v1/events returns 200 with valid ADMIN token', async () => {
+    const token = signTestToken({
+      sub: 'admin-1',
+      email: 'admin@demo.com',
+      role: Role.ADMIN,
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/events')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  // ── RBAC enforcement ───────────────────────────────────────────────────────
+
+  it('POST /api/v1/events returns 403 when EMPLOYEE tries to create event', async () => {
+    const token = signTestToken({
+      sub: 'emp-1',
+      email: 'employee1@demo.com',
+      role: Role.EMPLOYEE,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Unauthorized Event' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /api/v1/events/evt-1/reports returns 403 when EMPLOYEE tries to view all reports', async () => {
+    const token = signTestToken({
+      sub: 'emp-1',
+      email: 'employee1@demo.com',
+      role: Role.EMPLOYEE,
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/events/evt-1/reports')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('POST /api/v1/events/evt-1/reports returns 403 when ADMIN tries to submit safety report', async () => {
+    const token = signTestToken({
+      sub: 'admin-1',
+      email: 'admin@demo.com',
+      role: Role.ADMIN,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/events/evt-1/reports')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'SAFE' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /api/v1/events/evt-1/reports/team returns 403 when EMPLOYEE tries to view team reports', async () => {
+    const token = signTestToken({
+      sub: 'emp-1',
+      email: 'employee1@demo.com',
+      role: Role.EMPLOYEE,
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/events/evt-1/reports/team')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
   });
 });

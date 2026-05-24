@@ -9,9 +9,11 @@
     "lint": "pnpm -r lint",
     "test": "pnpm --filter api test",
     "test:e2e": "pnpm --filter api test:e2e",
+    "test:e2e:web": "pnpm --filter web test:e2e",
     "db:migrate": "pnpm --filter api exec prisma migrate dev",
     "db:seed": "pnpm --filter api exec prisma db seed",
-    "db:generate": "pnpm --filter api exec prisma generate"
+    "db:generate": "pnpm --filter api exec prisma generate",
+    "prepare": "pnpm --filter api exec prisma generate"
   },
   "packageManager": "pnpm@10.33.2",
   "pnpm": {
