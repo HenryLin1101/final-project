@@ -186,6 +186,9 @@ PLAYWRIGHT_BASE_URL=http://localhost pnpm --filter web test:e2e
 | `departments/departments.service.spec.ts` | `DepartmentsService` | 快取策略（已有） |
 | `health/health.controller.spec.ts` | `HealthController` | liveness payload（已有） |
 | `common/throttler/redis-throttler.storage.spec.ts` | `RedisThrottlerStorage` | graceful degradation（已有） |
+| `users/users.service.spec.ts` | `UsersService` | findAll 去除 passwordHash、create 重複 Email → 409、update 找不到 → 404、remove 成功 |
+| `notifications/notifications.service.spec.ts` | `NotificationsService` | list 依 actor 篩選、markRead 成功、markRead 不屬於 actor → 404 |
+| `audit-logs/audit-logs.service.spec.ts` | `AuditLogsService` | 分頁查詢、limit 最大 100 夾限、skip 計算正確 |
 
 ---
 
@@ -234,21 +237,6 @@ Stage 3：10 → 0 VU  冷卻 10s
 |----------|------|
 | `e2e/login.spec.ts` | 表單渲染、錯誤密碼顯示 `role=alert`、帳號不存在顯示錯誤、成功登入跳轉 `/dashboard` |
 | `e2e/report.spec.ts` | 導覽至事件列表、回報頁顯示「安全」/「需要協助」大卡片、選安全並送出後跳回事件詳情、未登入直接訪問回報頁跳轉 `/login`、ADMIN 不顯示「安全回報」按鈕 |
-
----
-
-### CI/CD（GitHub Actions）
-
-Push 至 `main` / `master` / `dev` 或 PR 時自動執行四個平行 Job：
-
-```
-lint ──────────────────────────────────── (eslint API + Web)
-unit-test ─────────────────── coverage ─ (49 cases)
-e2e-api ────────────────────────────────  (11 cases, mock DB)
-build ─────────────────────────────────── (tsc + next build)
-```
-
-詳見 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
 
 ## 負載測試（k6）
 
