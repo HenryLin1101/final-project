@@ -1,0 +1,133 @@
+name: Deploy to GKE
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-gke-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GCP_REGION: ${{ secrets.GCP_REGION || 'asia-northeast1' }}
+  AR_REPO: ${{ secrets.GCP_AR_REPO || 'safety-api' }}
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
+
+jobs:
+  deploy:
+    name: Build & deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          missing=0
+          for key in GCP_PROJECT_ID GCP_SA_KEY GKE_CLUSTER_NAME; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Configure GitHub Secrets under Settings → Secrets → Actions (see .github/env-and-secrets.md)."
+            exit 1
+          fi
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GKE_CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "${GKE_CLUSTER_NAME}" \
+            --region="${GCP_REGION}" \
+            --project="${GCP_PROJECT_ID}"
+        env:
+          GKE_CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Build and push API image
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/safety-api:${GITHUB_SHA}"
+          echo "API_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build -f apps/api/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Apply namespace
+        run: kubectl apply -f infra/k8s/namespace.yaml
+
+      - name: Deploy API
+        run: |
+          sed "s|__IMAGE__|${API_IMAGE}|g" infra/k8s/gcp/api-deployment.yaml | kubectl apply -f -
+          kubectl apply -f infra/k8s/gcp/api-service-loadbalancer.yaml
+          kubectl rollout status deployment/api -n safety-demo --timeout=600s
+
+      - name: Resolve API LoadBalancer address
+        id: api-lb
+        run: |
+          for i in $(seq 1 36); do
+            IP="$(kubectl get svc api -n safety-demo -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+            HOST="$(kubectl get svc api -n safety-demo -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+            if [ -n "$IP" ]; then
+              echo "host=$IP" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ -n "$HOST" ]; then
+              echo "host=$HOST" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Waiting for LoadBalancer ($i/36)..."
+            sleep 10
+          done
+          echo "::error::API LoadBalancer address not ready"
+          exit 1
+
+      - name: Build and push Web image
+        run: |
+          API_URL="http://${{ steps.api-lb.outputs.host }}/api/v1"
+          echo "NEXT_PUBLIC_API_URL=$API_URL"
+          WEB_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/safety-web:${GITHUB_SHA}"
+          echo "WEB_IMAGE=$WEB_IMAGE" >> "$GITHUB_ENV"
+          docker build -f apps/web/Dockerfile \
+            --build-arg "NEXT_PUBLIC_API_URL=${API_URL}" \
+            -t "$WEB_IMAGE" .
+          docker push "$WEB_IMAGE"
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy Web
+        run: |
+          sed "s|__IMAGE__|${WEB_IMAGE}|g" infra/k8s/gcp/web-deployment.yaml | kubectl apply -f -
+          kubectl apply -f infra/k8s/gcp/web-service-loadbalancer.yaml
+          kubectl rollout status deployment/web -n safety-demo --timeout=600s
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Component | Image |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| API | \`${API_IMAGE}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Web | \`${WEB_IMAGE}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          kubectl get svc -n safety-demo >> "$GITHUB_STEP_SUMMARY"

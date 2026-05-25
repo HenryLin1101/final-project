@@ -109,15 +109,143 @@ docker compose up --build
 
 API 容器啟動時會執行 `prisma migrate deploy` 再啟動 `node dist/src/main.js`。
 
-## 測試
+## CI（GitHub Actions）
+
+每次 push 至 `main` / `master` 或開 PR 時，[`.github/workflows/ci.yml`](.github/workflows/ci.yml) 會自動執行：
+
+| Job | 內容 |
+|-----|------|
+| **Lint, test & build** | `pnpm install --frozen-lockfile` → `prisma generate` → lint → 單元測試（含 coverage 報告 artifact）→ E2E → build |
+| **Docker build** | 驗證 `apps/api`、`apps/web` 的 Dockerfile 能成功建置 |
+
+本機可跑相同檢查：
 
 ```bash
-# 單元測試（API）
+pnpm install --frozen-lockfile
+pnpm --filter api exec prisma generate
+pnpm lint && pnpm test:cov && pnpm test:e2e && pnpm build
+docker build -f apps/api/Dockerfile -t safety-api:ci .
+docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost/api/v1 -t safety-web:ci .
+```
+
+**Branch protection**：請 repo admin 依 [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md) 設定 main 必須通過上述 CI 才能 merge。
+
+**環境變數 / Secret 對照**：[`.github/env-and-secrets.md`](.github/env-and-secrets.md)
+
+## CD（Deploy to GKE）
+
+合併至 `main` 後，[`.github/workflows/deploy-gke.yml`](.github/workflows/deploy-gke.yml) 會自動：
+
+1. Build & push API / Web 映像至 GCP Artifact Registry  
+2. Rolling update API + Web Deployment（GKE LoadBalancer）
+
+**Prisma migrate 不在 CD 內執行**；首次部署或 schema 變更時請依 [`.github/CD.md`](.github/CD.md) 手動跑 migrate（與 seed）。
+
+**一次性設定**：GKE 叢集、K8s `app-env` Secret、GitHub Actions Secrets。詳見 [`.github/CD.md`](.github/CD.md)。
+
+## 測試
+
+### 快速執行
+
+```bash
+# 0. 第一次使用前：產生 Prisma Client（僅需執行一次）
+pnpm db:generate
+
+# 1. API 單元測試（70 個測試案例，不需 DB/Redis）
 pnpm --filter api test
 
-# E2E：啟動完整 AppModule，但 Prisma/Redis 以 test double 取代，**不需本機 Postgres 即可跑**（驗證 /health、/health/ready）
+# 2. API 單元測試 + 覆蓋率報告（輸出至 apps/api/coverage/；CI 亦會上傳 artifact）
+pnpm --filter api test:cov
+
+# 3. API E2E 整合測試（13 個案例，Prisma/Redis 皆以 test double 取代，不需啟動任何服務）
 pnpm --filter api test:e2e
+
+# 4. k6 負載測試（需先 docker compose up）
+BASE_URL=http://localhost k6 run infra/k6/business.js
+
+# 5. 前端 Playwright E2E（需先啟動完整 stack）
+PLAYWRIGHT_BASE_URL=http://localhost pnpm --filter web test:e2e
 ```
+
+---
+
+### 測試架構分層
+
+| 層次 | 工具 | 範圍 | 執行條件 |
+|------|------|------|---------|
+| **Layer 1：單元測試** | Jest / `*.spec.ts` | Service 邏輯、快取、限流 | 無需任何服務 |
+| **Layer 2：E2E 整合** | Supertest + AppModule | HTTP 路由、Auth guard、RBAC | 無需任何服務（mock DB） |
+| **Layer 3：負載測試** | k6 | 登入 / 事件列表 / 回報提交 / 通知 | 需完整 stack |
+| **Layer 4：前端 E2E** | Playwright | 登入頁、回報頁、存取控制 | 需完整 stack |
+
+---
+
+### 單元測試涵蓋範圍（Layer 1）
+
+| 測試檔案 | 測試對象 | 主要案例 |
+|----------|----------|---------|
+| `auth/auth.service.spec.ts` | `AuthService` | 登入成功、錯誤密碼 → 401 + 稽核、帳號不存在 → 401、`me()` 去除 `passwordHash` |
+| `safety-reports/safety-reports.service.spec.ts` | `SafetyReportsService` | ADMIN 回報 → 403、非 ACTIVE 事件 → 400、EMPLOYEE 成功 upsert + 稽核、RBAC `listTeam`/`listAll`、`stats` 範圍 |
+| `reminders/reminders.service.spec.ts` | `RemindersService` | 事件不存在 → 拋錯、idempotency key 已存在 → 跳過、送出 EMPLOYEE/MANAGER 通知、Redis 未啟用時仍可執行 |
+| `scope/scope.service.spec.ts` | `ScopeService` | 部門樹遞迴、ADMIN 全公司、MANAGER 部門+直屬下屬 union、EMPLOYEE 僅自己 |
+| `events/events.service.spec.ts` | `EventsService` | Redis 快取命中/未命中、write-through invalidate（已有） |
+| `departments/departments.service.spec.ts` | `DepartmentsService` | 快取策略（已有） |
+| `health/health.controller.spec.ts` | `HealthController` | liveness payload（已有） |
+| `common/throttler/redis-throttler.storage.spec.ts` | `RedisThrottlerStorage` | graceful degradation（已有） |
+| `users/users.service.spec.ts` | `UsersService` | findAll 去除 passwordHash、create 重複 Email → 409、update 找不到 → 404、remove 成功 |
+| `notifications/notifications.service.spec.ts` | `NotificationsService` | list 依 actor 篩選、markRead 成功、markRead 不屬於 actor → 404 |
+| `audit-logs/audit-logs.service.spec.ts` | `AuditLogsService` | 分頁查詢、limit 最大 100 夾限、skip 計算正確 |
+| `audit/audit.service.spec.ts` | `AuditService` | 寫入稽核紀錄、null actorId/resourceId 轉 undefined、`REPORT_SUBMIT` |
+
+---
+
+### E2E 整合測試案例（Layer 2）
+
+| 端點 | 場景 | 預期結果 |
+|------|------|---------|
+| `GET /health` | 基本 | 200 `{ status: "ok" }` |
+| `GET /health/ready` | mock DB | 200 `{ status: "ready", postgres: true }` |
+| `POST /api/v1/auth/login` | 錯誤密碼 | 401 |
+| `POST /api/v1/auth/login` | 帳號不存在 | 401 |
+| `POST /api/v1/auth/login` | 缺少 email 欄位 | 400（ValidationPipe） |
+| `POST /api/v1/auth/login` | 正確帳密 | 201 + `access_token` + user（無 passwordHash） |
+| `GET /api/v1/events` | 無 token | 401 |
+| `GET /api/v1/events` | ADMIN token | 200 + 陣列 |
+| `POST /api/v1/events` | EMPLOYEE token | 403（`@Roles(ADMIN)` 限制） |
+| `GET /api/v1/events/:id/reports` | EMPLOYEE token | 403（僅 ADMIN 可查全公司） |
+| `POST /api/v1/events/:id/reports` | ADMIN token | 403（ADMIN 不能提交回報） |
+| `GET /api/v1/events/:id/reports/team` | EMPLOYEE token | 403（僅 MANAGER） |
+| `POST /api/v1/events/:id/reports` | EMPLOYEE token + ACTIVE 事件 | 201 + 回報物件 |
+
+---
+
+### k6 負載測試情境（Layer 3）
+
+```
+Stage 1：0 → 10 VU，暖機 30s
+Stage 2：10 VU  穩定負載 1 分鐘
+Stage 3：10 → 0 VU  冷卻 10s
+```
+
+**情境**：`health_check` → `admin_workflow`（登入 + 列事件 + 查統計）→ `employee_report`（登入 + 回報 + 查自己回報）→ `notifications`（查通知）
+
+**Threshold（門檻）**：
+
+| 指標 | 門檻 |
+|------|------|
+| `http_req_failed` | < 1% |
+| `http_req_duration` p(95) | < 800ms |
+| `report_submit_duration` p(95) | < 1000ms |
+| `login_error_rate` | < 5% |
+
+---
+
+### 前端 Playwright E2E（Layer 4）
+
+| 測試檔案 | 案例 |
+|----------|------|
+| `e2e/login.spec.ts` | 表單渲染、錯誤密碼顯示 `role=alert`、帳號不存在顯示錯誤、成功登入跳轉 `/dashboard` |
+| `e2e/report.spec.ts` | 導覽至事件列表、回報頁顯示「安全」/「需要協助」大卡片、選安全並送出後跳回事件詳情、未登入直接訪問回報頁跳轉 `/login`、ADMIN 不顯示「安全回報」按鈕 |
 
 ## 負載測試（k6）
 

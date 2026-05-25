@@ -20,7 +20,9 @@ spec:
           command:
             - /bin/sh
             - -c
-            - cd /app/apps/api && npx prisma migrate deploy
+            - |
+              /app/apps/api/node_modules/.bin/prisma migrate deploy \
+                --schema=/app/apps/api/prisma/schema.prisma
           envFrom:
             - secretRef:
                 name: app-env
