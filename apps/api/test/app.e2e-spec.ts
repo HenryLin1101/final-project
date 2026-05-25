@@ -7,6 +7,7 @@ import {
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import * as request from 'supertest';
+import * as bcrypt from 'bcrypt';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
@@ -16,10 +17,11 @@ import { Role } from '@prisma/client';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 /** 無本機 Postgres/Redis 時仍可跑 smoke e2e（CI、同學電腦） */
-function prismaTestDouble() {
+function createPrismaTestDouble(validPasswordHash: string) {
   const adminUser = {
     id: 'admin-1',
     email: 'admin@demo.com',
+    name: 'Admin',
     role: Role.ADMIN,
     departmentId: 'dept-1',
     managerId: null,
@@ -27,6 +29,7 @@ function prismaTestDouble() {
   const employeeUser = {
     id: 'emp-1',
     email: 'employee1@demo.com',
+    name: 'Employee One',
     role: Role.EMPLOYEE,
     departmentId: 'dept-1',
     managerId: 'mgr-1',
@@ -46,10 +49,17 @@ function prismaTestDouble() {
     user: {
       findUnique: jest.fn().mockImplementation(({ where }: { where: { id?: string; email?: string } }) => {
         if (where.id === 'admin-1' || where.email === 'admin@demo.com') {
-          return Promise.resolve({ ...adminUser, passwordHash: '$2b$10$placeholder' });
+          return Promise.resolve({
+            ...adminUser,
+            passwordHash: validPasswordHash,
+          });
         }
         if (where.id === 'emp-1' || where.email === 'employee1@demo.com') {
-          return Promise.resolve({ ...employeeUser, passwordHash: '$2b$10$placeholder', department: { id: 'dept-1', name: 'Eng' } });
+          return Promise.resolve({
+            ...employeeUser,
+            passwordHash: validPasswordHash,
+            department: { id: 'dept-1', name: 'Eng' },
+          });
         }
         return Promise.resolve(null);
       }),
@@ -105,13 +115,17 @@ function redisTestDouble() {
 
 describe('API (e2e)', () => {
   let app: INestApplication;
+  let prismaDouble: ReturnType<typeof createPrismaTestDouble>;
 
   beforeAll(async () => {
+    const validPasswordHash = await bcrypt.hash('Password123!', 10);
+    prismaDouble = createPrismaTestDouble(validPasswordHash);
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue(prismaTestDouble())
+      .useValue(prismaDouble)
       .overrideProvider(RedisService)
       .useValue(redisTestDouble())
       .compile();
@@ -184,6 +198,22 @@ describe('API (e2e)', () => {
         .send({ password: 'Password123!' });
 
       expect(res.status).toBe(400);
+    });
+
+    it('returns 201 with access_token on valid credentials', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'employee1@demo.com', password: 'Password123!' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.access_token).toEqual(expect.any(String));
+      expect(res.body.user).toMatchObject({
+        id: 'emp-1',
+        email: 'employee1@demo.com',
+        role: Role.EMPLOYEE,
+      });
+      expect(res.body.user).not.toHaveProperty('passwordHash');
+      expect(prismaDouble.auditLog.create).toHaveBeenCalled();
     });
   });
 
@@ -267,5 +297,25 @@ describe('API (e2e)', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(403);
+  });
+
+  // ── Happy paths ────────────────────────────────────────────────────────────
+
+  it('POST /api/v1/events/evt-1/reports returns 201 when EMPLOYEE submits SAFE report', async () => {
+    const token = signTestToken({
+      sub: 'emp-1',
+      email: 'employee1@demo.com',
+      role: Role.EMPLOYEE,
+    });
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/events/evt-1/reports')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'SAFE' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ id: 'rpt-1', status: 'SAFE' });
+    expect(prismaDouble.safetyReport.upsert).toHaveBeenCalled();
+    expect(prismaDouble.auditLog.create).toHaveBeenCalled();
   });
 });

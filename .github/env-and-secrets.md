@@ -74,8 +74,13 @@ kubectl create secret generic app-env -n safety-demo \
 
 | Secret 名稱 | 用途 |
 |-------------|------|
-| `GCP_SA_KEY` 或 Workload Identity | GKE 部署認證 |
-| `DATABASE_URL` / `DIRECT_URL` | 部署前 migrate job |
+| `GCP_PROJECT_ID` | GCP 專案 ID（CD 必填） |
+| `GCP_SA_KEY` | GCP Service Account JSON（CD 必填） |
+| `GKE_CLUSTER_NAME` | GKE 叢集名稱（CD 必填） |
+| `GCP_REGION` | 選填，預設 `asia-northeast1` |
+| `GCP_AR_REPO` | 選填，Artifact Registry repo，預設 `safety-api` |
+| `DATABASE_URL` / `DIRECT_URL` | 部署前 migrate job（在 K8s `app-env` Secret，非 GitHub Secret） |
 | `JWT_SECRET` | 與 K8s `app-env` 一致 |
 | `REDIS_URL` | 選填，雲端 Redis |
-| Registry 認證 | push Docker image 至 GHCR / Artifact Registry |
+
+完整 CD 設定步驟見 [`.github/CD.md`](CD.md)。

@@ -120,7 +120,7 @@ API 容器啟動時會執行 `prisma migrate deploy` 再啟動 `node dist/src/ma
 
 | Job | 內容 |
 |-----|------|
-| **Lint, test & build** | `pnpm install --frozen-lockfile` → `prisma generate` → lint → 單元測試 → E2E → build |
+| **Lint, test & build** | `pnpm install --frozen-lockfile` → `prisma generate` → lint → 單元測試（含 coverage 報告 artifact）→ E2E → build |
 | **Docker build** | 驗證 `apps/api`、`apps/web` 的 Dockerfile 能成功建置 |
 
 本機可跑相同檢查：
@@ -128,7 +128,7 @@ API 容器啟動時會執行 `prisma migrate deploy` 再啟動 `node dist/src/ma
 ```bash
 pnpm install --frozen-lockfile
 pnpm --filter api exec prisma generate
-pnpm lint && pnpm test && pnpm test:e2e && pnpm build
+pnpm lint && pnpm test:cov && pnpm test:e2e && pnpm build
 docker build -f apps/api/Dockerfile -t safety-api:ci .
 docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost/api/v1 -t safety-web:ci .
 ```
@@ -136,6 +136,16 @@ docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://local
 **Branch protection**：請 repo admin 依 [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md) 設定 main 必須通過上述 CI 才能 merge。
 
 **環境變數 / Secret 對照**：[`.github/env-and-secrets.md`](.github/env-and-secrets.md)
+
+## CD（Deploy to GKE）
+
+合併至 `main` 後，[`.github/workflows/deploy-gke.yml`](.github/workflows/deploy-gke.yml) 會自動：
+
+1. Build & push API / Web 映像至 GCP Artifact Registry  
+2. 執行 `prisma migrate deploy`（K8s Job）  
+3. Rolling update API + Web Deployment（GKE LoadBalancer）
+
+**一次性設定**：GKE 叢集、K8s `app-env` Secret、GitHub Actions Secrets。詳見 [`.github/CD.md`](.github/CD.md)。
 
 ## 測試
 
@@ -145,13 +155,13 @@ docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://local
 # 0. 第一次使用前：產生 Prisma Client（僅需執行一次）
 pnpm db:generate
 
-# 1. API 單元測試（49 個測試案例，不需 DB/Redis）
+# 1. API 單元測試（70 個測試案例，不需 DB/Redis）
 pnpm --filter api test
 
-# 2. API 單元測試 + 覆蓋率報告（輸出至 apps/api/coverage/）
+# 2. API 單元測試 + 覆蓋率報告（輸出至 apps/api/coverage/；CI 亦會上傳 artifact）
 pnpm --filter api test:cov
 
-# 3. API E2E 整合測試（11 個案例，Prisma/Redis 皆以 test double 取代，不需啟動任何服務）
+# 3. API E2E 整合測試（13 個案例，Prisma/Redis 皆以 test double 取代，不需啟動任何服務）
 pnpm --filter api test:e2e
 
 # 4. k6 負載測試（需先 docker compose up）
@@ -189,6 +199,7 @@ PLAYWRIGHT_BASE_URL=http://localhost pnpm --filter web test:e2e
 | `users/users.service.spec.ts` | `UsersService` | findAll 去除 passwordHash、create 重複 Email → 409、update 找不到 → 404、remove 成功 |
 | `notifications/notifications.service.spec.ts` | `NotificationsService` | list 依 actor 篩選、markRead 成功、markRead 不屬於 actor → 404 |
 | `audit-logs/audit-logs.service.spec.ts` | `AuditLogsService` | 分頁查詢、limit 最大 100 夾限、skip 計算正確 |
+| `audit/audit.service.spec.ts` | `AuditService` | 寫入稽核紀錄、null actorId/resourceId 轉 undefined、`REPORT_SUBMIT` |
 
 ---
 
@@ -201,12 +212,14 @@ PLAYWRIGHT_BASE_URL=http://localhost pnpm --filter web test:e2e
 | `POST /api/v1/auth/login` | 錯誤密碼 | 401 |
 | `POST /api/v1/auth/login` | 帳號不存在 | 401 |
 | `POST /api/v1/auth/login` | 缺少 email 欄位 | 400（ValidationPipe） |
+| `POST /api/v1/auth/login` | 正確帳密 | 201 + `access_token` + user（無 passwordHash） |
 | `GET /api/v1/events` | 無 token | 401 |
 | `GET /api/v1/events` | ADMIN token | 200 + 陣列 |
 | `POST /api/v1/events` | EMPLOYEE token | 403（`@Roles(ADMIN)` 限制） |
 | `GET /api/v1/events/:id/reports` | EMPLOYEE token | 403（僅 ADMIN 可查全公司） |
 | `POST /api/v1/events/:id/reports` | ADMIN token | 403（ADMIN 不能提交回報） |
 | `GET /api/v1/events/:id/reports/team` | EMPLOYEE token | 403（僅 MANAGER） |
+| `POST /api/v1/events/:id/reports` | EMPLOYEE token + ACTIVE 事件 | 201 + 回報物件 |
 
 ---
 

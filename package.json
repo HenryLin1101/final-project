@@ -8,6 +8,7 @@
     "build": "pnpm --filter api build && pnpm --filter web build",
     "lint": "pnpm -r lint",
     "test": "pnpm --filter api test",
+    "test:cov": "pnpm --filter api test:cov",
     "test:e2e": "pnpm --filter api test:e2e",
     "test:e2e:web": "pnpm --filter web test:e2e",
     "db:migrate": "pnpm --filter api exec prisma migrate dev",
