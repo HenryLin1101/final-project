@@ -45,6 +45,7 @@ type QueueStats = {
 };
 
 type MetricsSummary = {
+  pod: string;
   uptime_seconds: number;
   requests: {
     total: number;
@@ -552,6 +553,15 @@ export default function AdminQueuesPage() {
               </div>
               {metrics && (
                 <>
+                  <div>
+                    <span className="font-medium text-foreground">
+                      {t("servingPod")}:
+                    </span>{" "}
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {metrics.pod}
+                    </code>{" "}
+                    <span className="text-xs">{t("servingPodHint")}</span>
+                  </div>
                   <div>
                     <span className="font-medium text-foreground">
                       {t("uptime")}:

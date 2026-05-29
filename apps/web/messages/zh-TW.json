@@ -29,8 +29,8 @@
     "notifications": "通知",
     "createEvent": "建立事件",
     "users": "使用者",
-    "audit": "稽核",
-    "queues": "佇列"
+    "audit": "紀錄",
+    "queues": "監控"
   },
   "auth": {
     "title": "登入",
@@ -169,12 +169,14 @@
     "rateIdle": "目前無新增",
     "uptime": "API 啟動時間",
     "memory": "Heap 記憶體",
+    "servingPod": "當前 Pod",
+    "servingPodHint": "（指標為單 Pod 視角；HPA 多副本時 Cloud Monitoring 才有跨 Pod 聚合）",
     "httpSection": "HTTP 指標（來自 prom-client / Prometheus）",
     "queueSection": "BullMQ 佇列",
     "http": {
-      "totalRequests": "總請求數",
+      "totalRequests": "累積請求數",
       "rps": "即時 RPS",
-      "rpsHint": "每 2 秒採樣的瞬時值",
+      "rpsHint": "req/sec，每 2 秒採樣",
       "errorRate": "5xx 錯誤率",
       "errorRateHint": "目標 < 1%",
       "latency": "p95 延遲",

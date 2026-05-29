@@ -29,8 +29,8 @@
     "notifications": "Notifications",
     "createEvent": "Create Event",
     "users": "Users",
-    "audit": "Audit",
-    "queues": "Queues"
+    "audit": "Logs",
+    "queues": "Monitor"
   },
   "auth": {
     "title": "Sign In",
@@ -169,12 +169,14 @@
     "rateIdle": "idle",
     "uptime": "API uptime",
     "memory": "Heap memory",
+    "servingPod": "Serving Pod",
+    "servingPodHint": "(per-Pod view; cross-Pod aggregation only via Cloud Monitoring)",
     "httpSection": "HTTP Metrics (prom-client / Prometheus)",
     "queueSection": "BullMQ Queue",
     "http": {
-      "totalRequests": "Total Requests",
+      "totalRequests": "Cumulative Requests",
       "rps": "Current RPS",
-      "rpsHint": "instantaneous, sampled every 2 s",
+      "rpsHint": "req/sec, sampled every 2 s",
       "errorRate": "5xx Error Rate",
       "errorRateHint": "target < 1%",
       "latency": "p95 Latency",

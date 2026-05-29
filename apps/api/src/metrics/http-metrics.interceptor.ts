@@ -20,11 +20,14 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     }>();
     const res = context.switchToHttp().getResponse<{ statusCode: number }>();
     const startMs = Date.now();
-    // Skip self-referential paths: /metrics (Prometheus scrape feedback loop)
-    // and /admin/queues/* (the admin monitor page polls these every 2s and
-    // would otherwise inflate its own counters).
+    // Skip self-referential / infrastructure paths:
+    //  - /metrics: Prometheus scrape feedback loop
+    //  - /health, /health/ready: K8s probes hitting every few seconds
+    //  - /admin/queues/*: the admin monitor page polls these every 2s and
+    //    would otherwise inflate its own counters (observer effect).
     if (
       req.url.startsWith('/metrics') ||
+      req.url.startsWith('/health') ||
       req.url.startsWith('/api/v1/admin/queues')
     ) {
       return next.handle();

@@ -9,6 +9,13 @@ spec:
   type: LoadBalancer
   selector:
     app: safety-api
+  # ClientIP affinity pins each browser to one Pod so the per-Pod prom-client
+  # counter doesn't appear to "decrease" when LB round-robins across Pods.
+  # 3-hour timeout matches typical demo / oncall session length.
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   ports:
     - name: http
       port: 80

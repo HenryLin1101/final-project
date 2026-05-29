@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as client from 'prom-client';
 
 export type MetricsSummary = {
+  pod: string;
   uptime_seconds: number;
   requests: {
     total: number;
@@ -119,6 +120,8 @@ export class MetricsService {
     }
 
     return {
+      // HOSTNAME is set by K8s to the Pod name; falls back to OS hostname locally.
+      pod: process.env.HOSTNAME ?? 'local',
       uptime_seconds: Math.floor((Date.now() - this.bootedAt) / 1000),
       requests: { total, by_status: byStatus },
       latency_seconds: {
