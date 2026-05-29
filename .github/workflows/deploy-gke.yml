@@ -1,28 +1,35 @@
 name: Deploy to GKE
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main, master]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-gke-${{ github.ref }}
+  group: deploy-gke-${{ github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: false
 
 env:
   GCP_REGION: ${{ secrets.GCP_REGION || 'asia-northeast1' }}
   AR_REPO: ${{ secrets.GCP_AR_REPO || 'safety-api' }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
+  DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   deploy:
     name: Build & deploy
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Validate required secrets
         run: |
@@ -66,7 +73,7 @@ jobs:
 
       - name: Build and push API image
         run: |
-          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/safety-api:${GITHUB_SHA}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/safety-api:${DEPLOY_SHA}"
           echo "API_IMAGE=$IMAGE" >> "$GITHUB_ENV"
           docker build -f apps/api/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
@@ -106,7 +113,7 @@ jobs:
         run: |
           API_URL="http://${{ steps.api-lb.outputs.host }}/api/v1"
           echo "NEXT_PUBLIC_API_URL=$API_URL"
-          WEB_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/safety-web:${GITHUB_SHA}"
+          WEB_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/safety-web:${DEPLOY_SHA}"
           echo "WEB_IMAGE=$WEB_IMAGE" >> "$GITHUB_ENV"
           docker build -f apps/web/Dockerfile \
             --build-arg "NEXT_PUBLIC_API_URL=${API_URL}" \

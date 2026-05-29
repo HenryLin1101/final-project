@@ -134,10 +134,12 @@ docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://local
 
 ## CD（Deploy to GKE）
 
-合併至 `main` 後，[`.github/workflows/deploy-gke.yml`](.github/workflows/deploy-gke.yml) 會自動：
+合併至 `main` 後，先跑 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)；**CI 全部通過**後，[`.github/workflows/deploy-gke.yml`](.github/workflows/deploy-gke.yml) 才會自動：
 
 1. Build & push API / Web 映像至 GCP Artifact Registry  
 2. Rolling update API + Web Deployment（GKE LoadBalancer）
+
+CI 失敗時不會觸發部署。也可在 Actions 手動 Run workflow（略過 CI gate）。
 
 **Prisma migrate 不在 CD 內執行**；首次部署或 schema 變更時請依 [`.github/CD.md`](.github/CD.md) 手動跑 migrate（與 seed）。
 

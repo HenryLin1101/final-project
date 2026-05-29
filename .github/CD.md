@@ -1,8 +1,8 @@
 # CD：Deploy to GKE
 
-合併至 `main` 後，[`.github/workflows/deploy-gke.yml`](workflows/deploy-gke.yml) 會自動建置映像並部署 API + Web 到 GKE。
+合併至 `main` 後，[`.github/workflows/ci.yml`](workflows/ci.yml) 跑完且**全部通過**時，[`.github/workflows/deploy-gke.yml`](workflows/deploy-gke.yml) 才會自動建置映像並部署 API + Web 到 GKE（`workflow_run` 觸發，CI 失敗則不部署）。
 
-也可在 GitHub **Actions → Deploy to GKE → Run workflow** 手動觸發。
+也可在 GitHub **Actions → Deploy to GKE → Run workflow** 手動觸發（略過 CI gate，請謹慎使用）。
 
 > **Prisma migrate 不在 CD 內執行**。首次部署或 schema 變更時，請依下方 §「手動 migrate」自行跑一次。
 
@@ -78,10 +78,11 @@ pnpm --filter api exec prisma db seed
 
 ## 部署流程（CD 自動）
 
-1. Build & push `safety-api:${{ github.sha }}` 至 Artifact Registry  
-2. Rolling update API Deployment + LoadBalancer Service  
-3. 取得 API 外部 IP → build Web（`NEXT_PUBLIC_API_URL` 指向 API LB）  
-4. Deploy Web Deployment + LoadBalancer Service  
+1. `main` push → CI workflow 完成且成功 → 觸發 Deploy to GKE  
+2. Build & push `safety-api:<commit-sha>` 至 Artifact Registry  
+3. Rolling update API Deployment + LoadBalancer Service  
+4. 取得 API 外部 IP → build Web（`NEXT_PUBLIC_API_URL` 指向 API LB）  
+5. Deploy Web Deployment + LoadBalancer Service  
 
 ## 故障排除
 
