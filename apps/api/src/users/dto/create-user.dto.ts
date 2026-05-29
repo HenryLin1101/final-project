@@ -21,8 +21,9 @@ export class CreateUserDto {
   @IsEnum(Role)
   role!: Role;
 
+  @IsOptional()
   @IsString()
-  departmentId!: string;
+  departmentId?: string | null;
 
   @IsOptional()
   @IsString()

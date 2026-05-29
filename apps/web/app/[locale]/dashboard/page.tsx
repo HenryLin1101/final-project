@@ -20,7 +20,7 @@ type Me = {
   email: string;
   name: string;
   role: string;
-  department: { id: string; name: string };
+  department: { id: string; name: string } | null;
 };
 
 type EventRow = {
@@ -181,7 +181,8 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>{t("greeting", { name: me.name })}</CardTitle>
               <CardDescription>
-                {me.email} · {me.role} · {me.department.name}
+                {me.email} · {me.role}
+                {me.department ? ` · ${me.department.name}` : ` · ${t("systemAdmin")}`}
               </CardDescription>
             </CardHeader>
           </Card>

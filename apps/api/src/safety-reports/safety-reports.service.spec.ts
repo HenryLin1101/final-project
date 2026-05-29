@@ -15,7 +15,7 @@ const adminUser: AuthUser = {
   id: 'admin-1',
   email: 'admin@demo.com',
   role: Role.ADMIN,
-  departmentId: 'dept-1',
+  departmentId: null,
   managerId: null,
 };
 

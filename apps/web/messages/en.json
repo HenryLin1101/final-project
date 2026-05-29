@@ -57,7 +57,8 @@
     "viewTeamReports": "View Team Reports",
     "activeEvents": "Active Events",
     "unreadNotifications": "Unread Notifications",
-    "unreported": "Unreported"
+    "unreported": "Unreported",
+    "systemAdmin": "System Administrator"
   },
   "events": {
     "title": "Events",
@@ -130,7 +131,8 @@
     "errorPasswordRequired": "Password is required",
     "errorPasswordLength": "Password must be at least 6 characters",
     "errorRole": "Please select a role",
-    "errorDept": "Please select a department"
+    "errorDept": "Please select a department",
+    "noDepartment": "System Admin (no department)"
   },
   "adminEvents": {
     "title": "Event Management",

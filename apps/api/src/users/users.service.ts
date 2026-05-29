@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -36,6 +38,13 @@ export class UsersService {
     if (exists) {
       throw new ConflictException('Email already in use');
     }
+    if (dto.role === Role.ADMIN) {
+      // ADMIN is a system-wide role and must not belong to any department
+      dto.departmentId = null;
+      dto.managerId = null;
+    } else if (!dto.departmentId) {
+      throw new BadRequestException('departmentId is required for non-ADMIN roles');
+    }
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {
@@ -43,7 +52,7 @@ export class UsersService {
         passwordHash,
         name: dto.name,
         role: dto.role,
-        departmentId: dto.departmentId,
+        departmentId: dto.departmentId ?? undefined,
         managerId: dto.managerId ?? undefined,
       },
       include: { department: true },
@@ -64,6 +73,14 @@ export class UsersService {
         throw new ConflictException('Email already in use');
       }
     }
+    const effectiveRole = dto.role ?? user.role;
+    if (effectiveRole === Role.ADMIN) {
+      // ADMIN must not belong to any department
+      dto.departmentId = null;
+      dto.managerId = null;
+    } else if (dto.departmentId === null || dto.departmentId === '') {
+      throw new BadRequestException('departmentId is required for non-ADMIN roles');
+    }
     const passwordHash = dto.password
       ? await bcrypt.hash(dto.password, 10)
       : undefined;
@@ -73,7 +90,7 @@ export class UsersService {
         email: dto.email,
         name: dto.name,
         role: dto.role,
-        departmentId: dto.departmentId,
+        departmentId: dto.departmentId === undefined ? undefined : (dto.departmentId ?? null),
         managerId: dto.managerId === undefined ? undefined : dto.managerId,
         ...(passwordHash ? { passwordHash } : {}),
       },

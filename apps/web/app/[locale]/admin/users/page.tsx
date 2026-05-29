@@ -25,9 +25,9 @@ type UserRow = {
   email: string;
   name: string;
   role: string;
-  departmentId: string;
+  departmentId: string | null;
   managerId: string | null;
-  department: { id: string; name: string };
+  department: { id: string; name: string } | null;
 };
 
 type Department = {
@@ -69,6 +69,8 @@ function UserForm({
     initial?.managerId ?? ""
   );
 
+  const isAdminRole = role === "ADMIN";
+
   const mutation = useMutation({
     mutationFn: () => {
       if (mode === "create") {
@@ -79,12 +81,17 @@ function UserForm({
             email,
             password,
             role,
-            departmentId,
-            managerId: managerId || null,
+            departmentId: isAdminRole ? null : departmentId,
+            managerId: isAdminRole ? null : managerId || null,
           }),
         });
       }
-      const body: Record<string, unknown> = { name, role, departmentId, managerId: managerId || null };
+      const body: Record<string, unknown> = {
+        name,
+        role,
+        departmentId: isAdminRole ? null : departmentId,
+        managerId: isAdminRole ? null : managerId || null,
+      };
       if (password) body.password = password;
       return apiFetch(`/users/${initial!.id}`, {
         method: "PATCH",
@@ -115,7 +122,7 @@ function UserForm({
         ? t("errorPasswordRequired")
         : null,
     role: role === "" ? t("errorRole") : null,
-    departmentId: departmentId === "" ? t("errorDept") : null,
+    departmentId: !isAdminRole && departmentId === "" ? t("errorDept") : null,
   };
   const isValid = Object.values(errors).every((e) => e === null);
 
@@ -174,35 +181,39 @@ function UserForm({
               <p className="text-xs text-destructive">{errors.role}</p>
             )}
           </div>
-          <div className="space-y-1">
-            <Label>{tc("department")}</Label>
-            <select
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">{t("selectDeptPlaceholder")}</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-            {attempted && errors.departmentId && (
-              <p className="text-xs text-destructive">{errors.departmentId}</p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <Label>{t("managerLabel")}</Label>
-            <select
-              value={managerId}
-              onChange={(e) => setManagerId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="">{t("noManager")}</option>
-              {managers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
+          {!isAdminRole && (
+            <div className="space-y-1">
+              <Label>{tc("department")}</Label>
+              <select
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">{t("selectDeptPlaceholder")}</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              {attempted && errors.departmentId && (
+                <p className="text-xs text-destructive">{errors.departmentId}</p>
+              )}
+            </div>
+          )}
+          {!isAdminRole && (
+            <div className="space-y-1">
+              <Label>{t("managerLabel")}</Label>
+              <select
+                value={managerId}
+                onChange={(e) => setManagerId(e.target.value)}
+                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">{t("noManager")}</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         {mutation.isError && (
           <p className="mt-2 text-sm text-destructive">
@@ -351,7 +362,7 @@ export default function AdminUsersPage() {
                           {u.role}
                         </span>
                       </TableCell>
-                      <TableCell>{u.department.name}</TableCell>
+                      <TableCell>{u.department?.name ?? t("noDepartment")}</TableCell>
                       <TableCell className="text-right">
                         {confirmDeleteId === u.id ? (
                           <span className="flex items-center justify-end gap-2">

@@ -49,7 +49,6 @@ async function main() {
       passwordHash,
       name: '系統管理員',
       role: Role.ADMIN,
-      departmentId: hq.id,
     },
   });
 

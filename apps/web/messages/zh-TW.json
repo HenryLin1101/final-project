@@ -57,7 +57,8 @@
     "viewTeamReports": "查看團隊回報",
     "activeEvents": "進行中事件",
     "unreadNotifications": "未讀通知",
-    "unreported": "未回報人員"
+    "unreported": "未回報人員",
+    "systemAdmin": "系統管理員"
   },
   "events": {
     "title": "事件列表",
@@ -130,7 +131,8 @@
     "errorPasswordRequired": "請輸入密碼",
     "errorPasswordLength": "密碼至少 6 字元",
     "errorRole": "請選擇角色",
-    "errorDept": "請選擇部門"
+    "errorDept": "請選擇部門",
+    "noDepartment": "系統管理員（無部門）"
   },
   "adminEvents": {
     "title": "事件管理",

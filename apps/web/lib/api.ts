@@ -9,7 +9,7 @@ export type StoredSession = {
     email: string;
     name: string;
     role: "EMPLOYEE" | "MANAGER" | "ADMIN";
-    departmentId: string;
+    departmentId: string | null;
   };
 };
 

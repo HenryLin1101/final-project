@@ -79,7 +79,7 @@ describe('RemindersService', () => {
     id: 'system',
     email: 'system@internal',
     role: Role.ADMIN,
-    departmentId: '',
+    departmentId: null as string | null,
     managerId: null as string | null,
   };
 

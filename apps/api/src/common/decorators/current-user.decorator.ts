@@ -5,7 +5,7 @@ export type AuthUser = {
   id: string;
   email: string;
   role: import('@prisma/client').Role;
-  departmentId: string;
+  departmentId: string | null;
   managerId: string | null;
 };
 

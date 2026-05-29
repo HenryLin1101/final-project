@@ -8,7 +8,7 @@ const adminUser: AuthUser = {
   id: 'admin-1',
   email: 'admin@demo.com',
   role: Role.ADMIN,
-  departmentId: 'dept-root',
+  departmentId: null,
   managerId: null,
 };
 

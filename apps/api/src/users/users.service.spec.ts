@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,6 +20,19 @@ const mockUser = {
   createdAt: new Date(),
   updatedAt: new Date(),
   department: { id: 'dept-1', name: 'Engineering' },
+};
+
+const mockAdmin = {
+  id: 'admin-1',
+  email: 'admin@demo.com',
+  name: '系統管理員',
+  role: Role.ADMIN,
+  departmentId: null,
+  managerId: null,
+  passwordHash: 'hashed',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  department: null,
 };
 
 describe('UsersService', () => {
@@ -94,6 +112,37 @@ describe('UsersService', () => {
       const result = await service.create(createDto);
 
       expect(prismaUser.create).toHaveBeenCalled();
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('throws BadRequestException when non-ADMIN is created without departmentId', async () => {
+      prismaUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create({ ...createDto, role: Role.MANAGER, departmentId: undefined }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates ADMIN without departmentId and forces departmentId=null', async () => {
+      prismaUser.findUnique.mockResolvedValue(null);
+      prismaUser.create.mockResolvedValue(mockAdmin);
+
+      const result = await service.create({
+        email: 'admin2@demo.com',
+        password: 'Password123!',
+        name: 'Admin',
+        role: Role.ADMIN,
+        departmentId: 'dept-1', // should be ignored/cleared
+      });
+
+      expect(prismaUser.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            departmentId: undefined, // null coerced to undefined for Prisma
+            managerId: undefined,
+          }),
+        }),
+      );
       expect(result).not.toHaveProperty('passwordHash');
     });
   });

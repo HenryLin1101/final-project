@@ -10,7 +10,7 @@ const SYSTEM_ACTOR: AuthUser = {
   id: 'system',
   email: 'system@internal',
   role: Role.ADMIN,
-  departmentId: '',
+  departmentId: null,
   managerId: null,
 };
 
