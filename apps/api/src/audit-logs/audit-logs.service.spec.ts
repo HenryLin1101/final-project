@@ -27,9 +27,11 @@ describe('AuditLogsService', () => {
         {
           provide: PrismaService,
           useValue: {
-            $transaction: jest.fn().mockImplementation((queries: Promise<unknown>[]) =>
-              Promise.all(queries),
-            ),
+            $transaction: jest
+              .fn()
+              .mockImplementation((queries: Promise<unknown>[]) =>
+                Promise.all(queries),
+              ),
             auditLog: {
               findMany: prismaAuditLogFindMany,
               count: prismaAuditLogCount,

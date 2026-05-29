@@ -63,7 +63,9 @@ describe('EventsService - Redis cache', () => {
     };
     prismaEvent = {
       findMany: jest.fn().mockResolvedValue([mockEvent]),
-      create: jest.fn().mockResolvedValue({ ...mockEvent, status: EventStatus.DRAFT }),
+      create: jest
+        .fn()
+        .mockResolvedValue({ ...mockEvent, status: EventStatus.DRAFT }),
       findUnique: jest.fn().mockResolvedValue(mockEvent),
       update: jest.fn().mockResolvedValue({ ...mockEvent, title: 'Updated' }),
     };

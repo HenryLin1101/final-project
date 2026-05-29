@@ -95,6 +95,16 @@ export function AppHeader() {
               >
                 {t("audit")}
               </Link>
+              <Link
+                href="/admin/queues"
+                className={`px-2 py-2 transition-colors ${
+                  pathname.startsWith("/admin/queues")
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t("queues")}
+              </Link>
             </>
           )}
         </nav>

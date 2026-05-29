@@ -25,8 +25,14 @@ export class SafetyReportsProcessor extends WorkerHost {
 
   async process(job: Job<SubmitReportJob>) {
     if (job.name === 'submit') {
-      this.logger.log(`Processing submit job ${job.id} for event ${job.data.eventId}`);
-      return this.reports.submit(job.data.eventId, job.data.actor, job.data.dto);
+      this.logger.log(
+        `Processing submit job ${job.id} for event ${job.data.eventId}`,
+      );
+      return this.reports.submit(
+        job.data.eventId,
+        job.data.actor,
+        job.data.dto,
+      );
     }
     throw new Error(`Unknown job name: ${job.name}`);
   }

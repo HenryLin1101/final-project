@@ -120,10 +120,16 @@ describe('RemindersService', () => {
 
     const result = await service.run(mockActiveEvent.id, systemActor);
 
-    expect(result).toMatchObject({ ok: true, missingCount: 2, employeeReminders: 2 });
+    expect(result).toMatchObject({
+      ok: true,
+      missingCount: 2,
+      employeeReminders: 2,
+    });
     expect(prismaNotification.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: NotificationType.REMINDER_EMPLOYEE }),
+        data: expect.objectContaining({
+          type: NotificationType.REMINDER_EMPLOYEE,
+        }),
       }),
     );
   });

@@ -20,7 +20,8 @@
     "event": "事件",
     "processing": "執行中…",
     "operationFailed": "操作失敗，請再試一次",
-    "actions": "操作"
+    "actions": "操作",
+    "admin": "管理"
   },
   "nav": {
     "brand": "Safety & Response",
@@ -28,7 +29,8 @@
     "notifications": "通知",
     "createEvent": "建立事件",
     "users": "使用者",
-    "audit": "稽核"
+    "audit": "稽核",
+    "queues": "佇列"
   },
   "auth": {
     "title": "登入",
@@ -150,5 +152,28 @@
     "actorColumn": "操作者",
     "actionColumn": "動作",
     "resourceColumn": "資源"
+  },
+  "adminQueues": {
+    "title": "事件佇列監控",
+    "subtitle": "即時觀察安全回報的非同步處理狀況（BullMQ + Redis）。",
+    "openBullBoard": "開啟 Bull Board",
+    "disabledHint": "目前後端未連線到 Redis，數字為估算佔位值。請確認 REDIS_URL 已設定。",
+    "queueInfo": "佇列資訊",
+    "queueName": "佇列名稱",
+    "polling": "刷新頻率",
+    "pollingValue": "每 2 秒",
+    "backendStatus": "後端狀態",
+    "backendEnabled": "Redis 連線正常",
+    "backendDisabled": "未連線（fallback）",
+    "ratePerSec": "近期 {rate} 筆/秒",
+    "rateIdle": "目前無新增",
+    "stats": {
+      "waiting": "等待中",
+      "active": "處理中",
+      "completed": "已完成",
+      "failed": "失敗",
+      "delayed": "排程中",
+      "paused": "已暫停"
+    }
   }
 }

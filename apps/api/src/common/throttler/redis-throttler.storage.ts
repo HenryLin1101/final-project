@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { RedisService } from '../../redis/redis.service';
 
-type ThrottlerStorageRecord = Awaited<ReturnType<ThrottlerStorage['increment']>>;
+type ThrottlerStorageRecord = Awaited<
+  ReturnType<ThrottlerStorage['increment']>
+>;
 
 @Injectable()
 export class RedisThrottlerStorage implements ThrottlerStorage {
@@ -16,7 +18,12 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
     _throttlerName: string,
   ): Promise<ThrottlerStorageRecord> {
     if (!this.redis.isEnabled()) {
-      return { totalHits: 0, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 };
+      return {
+        totalHits: 0,
+        timeToExpire: 0,
+        isBlocked: false,
+        timeToBlockExpire: 0,
+      };
     }
 
     try {
@@ -24,10 +31,20 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
       const rawPttl = await this.redis.pttl(key);
       const timeToExpire = Math.max(0, rawPttl);
       const isBlocked = totalHits > limit;
-      return { totalHits, timeToExpire, isBlocked, timeToBlockExpire: isBlocked ? timeToExpire : 0 };
+      return {
+        totalHits,
+        timeToExpire,
+        isBlocked,
+        timeToBlockExpire: isBlocked ? timeToExpire : 0,
+      };
     } catch {
       // Redis unavailable — allow the request (graceful degradation)
-      return { totalHits: 0, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 };
+      return {
+        totalHits: 0,
+        timeToExpire: 0,
+        isBlocked: false,
+        timeToBlockExpire: 0,
+      };
     }
   }
 }

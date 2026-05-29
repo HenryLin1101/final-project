@@ -6,6 +6,7 @@ import { SafetyReportsProcessor } from './safety-reports.processor';
 import { ScopeModule } from '../scope/scope.module';
 import { AuditModule } from '../audit/audit.module';
 import { SAFETY_REPORTS_QUEUE } from '../queues/queue-names';
+import { QueueAdminController } from '../queues/queue-admin.controller';
 
 // When REDIS_URL is unset (e.g. CI e2e), we register a no-op queue stub so the
 // controller's @InjectQueue resolves, AND skip registering SafetyReportsProcessor
@@ -23,7 +24,7 @@ export class SafetyReportsModule {
           AuditModule,
           BullModule.registerQueue({ name: SAFETY_REPORTS_QUEUE }),
         ],
-        controllers: [SafetyReportsController],
+        controllers: [SafetyReportsController, QueueAdminController],
         providers: [SafetyReportsService, SafetyReportsProcessor],
       };
     }
@@ -31,7 +32,7 @@ export class SafetyReportsModule {
     return {
       module: SafetyReportsModule,
       imports: [ScopeModule, AuditModule],
-      controllers: [SafetyReportsController],
+      controllers: [SafetyReportsController, QueueAdminController],
       providers: [
         SafetyReportsService,
         {

@@ -4,8 +4,12 @@ import * as client from 'prom-client';
 @Injectable()
 export class MetricsService {
   private readonly registry: client.Registry;
-  private readonly httpRequestsTotal: client.Counter<'method' | 'route' | 'status_code'>;
-  private readonly httpRequestDuration: client.Histogram<'method' | 'route' | 'status_code'>;
+  private readonly httpRequestsTotal: client.Counter<
+    'method' | 'route' | 'status_code'
+  >;
+  private readonly httpRequestDuration: client.Histogram<
+    'method' | 'route' | 'status_code'
+  >;
 
   constructor() {
     this.registry = new client.Registry();
@@ -27,7 +31,12 @@ export class MetricsService {
     });
   }
 
-  recordRequest(method: string, route: string, statusCode: string, durationSec: number): void {
+  recordRequest(
+    method: string,
+    route: string,
+    statusCode: string,
+    durationSec: number,
+  ): void {
     const labels = { method, route, status_code: statusCode };
     this.httpRequestsTotal.inc(labels);
     this.httpRequestDuration.observe(labels, durationSec);

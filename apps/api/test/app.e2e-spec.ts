@@ -49,22 +49,26 @@ function createPrismaTestDouble(validPasswordHash: string) {
         : Promise.resolve([]),
     ),
     user: {
-      findUnique: jest.fn().mockImplementation(({ where }: { where: { id?: string; email?: string } }) => {
-        if (where.id === 'admin-1' || where.email === 'admin@demo.com') {
-          return Promise.resolve({
-            ...adminUser,
-            passwordHash: validPasswordHash,
-          });
-        }
-        if (where.id === 'emp-1' || where.email === 'employee1@demo.com') {
-          return Promise.resolve({
-            ...employeeUser,
-            passwordHash: validPasswordHash,
-            department: { id: 'dept-1', name: 'Eng' },
-          });
-        }
-        return Promise.resolve(null);
-      }),
+      findUnique: jest
+        .fn()
+        .mockImplementation(
+          ({ where }: { where: { id?: string; email?: string } }) => {
+            if (where.id === 'admin-1' || where.email === 'admin@demo.com') {
+              return Promise.resolve({
+                ...adminUser,
+                passwordHash: validPasswordHash,
+              });
+            }
+            if (where.id === 'emp-1' || where.email === 'employee1@demo.com') {
+              return Promise.resolve({
+                ...employeeUser,
+                passwordHash: validPasswordHash,
+                department: { id: 'dept-1', name: 'Eng' },
+              });
+            }
+            return Promise.resolve(null);
+          },
+        ),
     },
     event: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -73,7 +77,11 @@ function createPrismaTestDouble(validPasswordHash: string) {
         title: 'Test Event',
         status: 'ACTIVE',
       }),
-      create: jest.fn().mockResolvedValue({ id: 'evt-new', title: 'New Event', status: 'DRAFT' }),
+      create: jest.fn().mockResolvedValue({
+        id: 'evt-new',
+        title: 'New Event',
+        status: 'DRAFT',
+      }),
     },
     safetyReport: {
       upsert: jest.fn().mockResolvedValue({ id: 'rpt-1', status: 'SAFE' }),

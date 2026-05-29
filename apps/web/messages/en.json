@@ -20,7 +20,8 @@
     "event": "Event",
     "processing": "Processing…",
     "operationFailed": "Operation failed, please try again",
-    "actions": "Actions"
+    "actions": "Actions",
+    "admin": "Admin"
   },
   "nav": {
     "brand": "Safety & Response",
@@ -28,7 +29,8 @@
     "notifications": "Notifications",
     "createEvent": "Create Event",
     "users": "Users",
-    "audit": "Audit"
+    "audit": "Audit",
+    "queues": "Queues"
   },
   "auth": {
     "title": "Sign In",
@@ -150,5 +152,28 @@
     "actorColumn": "Actor",
     "actionColumn": "Action",
     "resourceColumn": "Resource"
+  },
+  "adminQueues": {
+    "title": "Event Queue Monitor",
+    "subtitle": "Live view of async safety report processing (BullMQ + Redis).",
+    "openBullBoard": "Open Bull Board",
+    "disabledHint": "Backend has no Redis connection; numbers are placeholders. Confirm REDIS_URL is set.",
+    "queueInfo": "Queue Info",
+    "queueName": "Queue name",
+    "polling": "Refresh interval",
+    "pollingValue": "every 2 s",
+    "backendStatus": "Backend status",
+    "backendEnabled": "Redis healthy",
+    "backendDisabled": "Disconnected (fallback)",
+    "ratePerSec": "{rate} jobs/sec recently",
+    "rateIdle": "idle",
+    "stats": {
+      "waiting": "Waiting",
+      "active": "Active",
+      "completed": "Completed",
+      "failed": "Failed",
+      "delayed": "Delayed",
+      "paused": "Paused"
+    }
   }
 }

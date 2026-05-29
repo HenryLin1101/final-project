@@ -83,7 +83,9 @@ describe('UsersService', () => {
     };
 
     it('throws ConflictException when email already exists', async () => {
-      await expect(service.create(createDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(createDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('creates user and returns without passwordHash when email is unique', async () => {
@@ -136,7 +138,9 @@ describe('UsersService', () => {
     it('deletes the user and returns ok', async () => {
       const result = await service.remove('user-1');
 
-      expect(prismaUser.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+      expect(prismaUser.delete).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+      });
       expect(result).toEqual({ ok: true });
     });
   });

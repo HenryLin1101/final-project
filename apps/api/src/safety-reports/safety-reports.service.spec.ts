@@ -50,7 +50,11 @@ const mockDraftEvent = {
 describe('SafetyReportsService', () => {
   let service: SafetyReportsService;
   let prismaEvent: { findUnique: jest.Mock };
-  let prismaReport: { upsert: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock };
+  let prismaReport: {
+    upsert: jest.Mock;
+    findUnique: jest.Mock;
+    findMany: jest.Mock;
+  };
   let scopeService: { getScopedReporterUserIds: jest.Mock };
   let auditLog: jest.Mock;
 
@@ -116,11 +120,20 @@ describe('SafetyReportsService', () => {
     });
 
     it('upserts report and calls audit log on EMPLOYEE success', async () => {
-      const result = await service.submit(mockActiveEvent.id, employeeUser, dto);
+      const result = await service.submit(
+        mockActiveEvent.id,
+        employeeUser,
+        dto,
+      );
 
       expect(prismaReport.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId_eventId: { userId: employeeUser.id, eventId: mockActiveEvent.id } },
+          where: {
+            userId_eventId: {
+              userId: employeeUser.id,
+              eventId: mockActiveEvent.id,
+            },
+          },
         }),
       );
       expect(auditLog).toHaveBeenCalledWith(
@@ -140,7 +153,9 @@ describe('SafetyReportsService', () => {
     it('returns scoped team reports for MANAGER', async () => {
       const result = await service.listTeam(mockActiveEvent.id, managerUser);
 
-      expect(scopeService.getScopedReporterUserIds).toHaveBeenCalledWith(managerUser);
+      expect(scopeService.getScopedReporterUserIds).toHaveBeenCalledWith(
+        managerUser,
+      );
       expect(Array.isArray(result)).toBe(true);
     });
   });
@@ -173,7 +188,11 @@ describe('SafetyReportsService', () => {
     });
 
     it('returns scope "company" for ADMIN', async () => {
-      scopeService.getScopedReporterUserIds.mockResolvedValue(['emp-1', 'emp-2', 'mgr-1']);
+      scopeService.getScopedReporterUserIds.mockResolvedValue([
+        'emp-1',
+        'emp-2',
+        'mgr-1',
+      ]);
       prismaReport.findMany.mockResolvedValue([
         { userId: 'emp-1', status: SafetyStatus.SAFE },
         { userId: 'emp-2', status: SafetyStatus.NEED_HELP },

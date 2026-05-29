@@ -45,7 +45,9 @@ export class EventsService {
 
     let events: Awaited<ReturnType<typeof this.prisma.event.findMany>>;
     if (actor.role === Role.ADMIN) {
-      events = await this.prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+      events = await this.prisma.event.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
     } else if (actor.role === Role.MANAGER) {
       events = await this.prisma.event.findMany({
         where: { status: { in: [EventStatus.ACTIVE, EventStatus.CLOSED] } },

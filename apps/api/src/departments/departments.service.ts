@@ -40,7 +40,11 @@ export class DepartmentsService {
 
     if (this.redis.isEnabled()) {
       try {
-        await this.redis.set(DEPT_CACHE_KEY, JSON.stringify(depts), DEPT_CACHE_TTL);
+        await this.redis.set(
+          DEPT_CACHE_KEY,
+          JSON.stringify(depts),
+          DEPT_CACHE_TTL,
+        );
       } catch {
         // Redis write failure — non-fatal, serve result without caching
       }

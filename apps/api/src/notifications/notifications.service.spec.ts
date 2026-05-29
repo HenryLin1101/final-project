@@ -35,7 +35,9 @@ describe('NotificationsService', () => {
     prismaNotification = {
       findMany: jest.fn().mockResolvedValue([mockNotification]),
       findFirst: jest.fn().mockResolvedValue(mockNotification),
-      update: jest.fn().mockResolvedValue({ ...mockNotification, readAt: new Date() }),
+      update: jest
+        .fn()
+        .mockResolvedValue({ ...mockNotification, readAt: new Date() }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

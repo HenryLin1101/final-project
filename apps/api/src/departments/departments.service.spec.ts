@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { DepartmentsService, DEPT_CACHE_KEY, DEPT_CACHE_TTL } from './departments.service';
+import {
+  DepartmentsService,
+  DEPT_CACHE_KEY,
+  DEPT_CACHE_TTL,
+} from './departments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../scope/scope.service';
 import { RedisService } from '../redis/redis.service';
@@ -44,7 +48,9 @@ describe('DepartmentsService - Redis cache', () => {
         { provide: PrismaService, useValue: { department: prismaDept } },
         {
           provide: ScopeService,
-          useValue: { getDepartmentTreeIds: jest.fn().mockResolvedValue(['d1']) },
+          useValue: {
+            getDepartmentTreeIds: jest.fn().mockResolvedValue(['d1']),
+          },
         },
         { provide: RedisService, useValue: redis },
       ],
