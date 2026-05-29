@@ -167,6 +167,19 @@
     "backendDisabled": "Disconnected (fallback)",
     "ratePerSec": "{rate} jobs/sec recently",
     "rateIdle": "idle",
+    "uptime": "API uptime",
+    "memory": "Heap memory",
+    "httpSection": "HTTP Metrics (prom-client / Prometheus)",
+    "queueSection": "BullMQ Queue",
+    "http": {
+      "totalRequests": "Total Requests",
+      "rps": "Current RPS",
+      "rpsHint": "instantaneous, sampled every 2 s",
+      "errorRate": "5xx Error Rate",
+      "errorRateHint": "target < 1%",
+      "latency": "p95 Latency",
+      "latencyHint": "avg {avg} ms"
+    },
     "stats": {
       "waiting": "Waiting",
       "active": "Active",

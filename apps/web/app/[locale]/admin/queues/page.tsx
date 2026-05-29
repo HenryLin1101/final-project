@@ -24,6 +24,28 @@ type QueueStats = {
   };
 };
 
+type MetricsSummary = {
+  uptime_seconds: number;
+  requests: {
+    total: number;
+    by_status: Record<string, number>;
+  };
+  latency_seconds: {
+    avg: number;
+    p95: number;
+  };
+  memory_mb: number;
+};
+
+function formatUptime(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
 type StatKey = keyof QueueStats["counts"];
 
 const STAT_ORDER: StatKey[] = [
@@ -97,6 +119,37 @@ export default function AdminQueuesPage() {
     refetchIntervalInBackground: false,
   });
 
+  const { data: metrics } = useQuery({
+    queryKey: ["admin-metrics-summary"],
+    queryFn: () => apiFetch<MetricsSummary>("/admin/queues/metrics-summary"),
+    enabled: mounted && getSession()?.user.role === "ADMIN",
+    refetchInterval: 2000,
+    refetchIntervalInBackground: false,
+  });
+
+  const lastRequestsRef = useRef<{ value: number; at: number } | null>(null);
+  const [rps, setRps] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!metrics) return;
+    const now = Date.now();
+    const current = metrics.requests.total;
+    const last = lastRequestsRef.current;
+    if (last) {
+      const deltaSec = (now - last.at) / 1000;
+      const deltaCount = current - last.value;
+      if (deltaSec > 0 && deltaCount >= 0) {
+        setRps(deltaCount / deltaSec);
+      }
+    }
+    lastRequestsRef.current = { value: current, at: now };
+  }, [metrics]);
+
+  const errorRate =
+    metrics && metrics.requests.total > 0
+      ? (metrics.requests.by_status["5xx"] / metrics.requests.total) * 100
+      : 0;
+
   useEffect(() => {
     if (!data?.enabled) return;
     const now = Date.now();
@@ -160,8 +213,113 @@ export default function AdminQueuesPage() {
         </p>
       )}
 
+      {metrics && (
+        <>
+          <h2 className="mt-4 mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            {t("httpSection")}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t("http.totalRequests")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold tabular-nums">
+                  {metrics.requests.total.toLocaleString()}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  2xx:{" "}
+                  <span style={{ color: "var(--success)" }}>
+                    {metrics.requests.by_status["2xx"].toLocaleString()}
+                  </span>{" "}
+                  · 4xx:{" "}
+                  <span style={{ color: "var(--warning)" }}>
+                    {metrics.requests.by_status["4xx"].toLocaleString()}
+                  </span>{" "}
+                  · 5xx:{" "}
+                  <span style={{ color: "var(--destructive)" }}>
+                    {metrics.requests.by_status["5xx"].toLocaleString()}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t("http.rps")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold tabular-nums">
+                  {rps === null ? "—" : rps.toFixed(1)}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {t("http.rpsHint")}
+                </div>
+              </CardContent>
+            </Card>
+            <Card
+              style={{
+                borderColor:
+                  errorRate > 5 ? "var(--destructive)" : undefined,
+              }}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t("http.errorRate")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="text-2xl font-bold tabular-nums"
+                  style={{
+                    color:
+                      errorRate > 5
+                        ? "var(--destructive)"
+                        : errorRate > 1
+                          ? "var(--warning)"
+                          : "var(--success)",
+                  }}
+                >
+                  {errorRate.toFixed(2)}%
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {t("http.errorRateHint")}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t("http.latency")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold tabular-nums">
+                  {Math.round(metrics.latency_seconds.p95 * 1000)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {" "}
+                    ms
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {t("http.latencyHint", {
+                    avg: Math.round(metrics.latency_seconds.avg * 1000),
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
       {data && (
         <>
+          <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            {t("queueSection")}
+          </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {STAT_ORDER.map((key) => {
               const style = STAT_STYLES[key];
@@ -252,6 +410,22 @@ export default function AdminQueuesPage() {
                   </span>
                 )}
               </div>
+              {metrics && (
+                <>
+                  <div>
+                    <span className="font-medium text-foreground">
+                      {t("uptime")}:
+                    </span>{" "}
+                    {formatUptime(metrics.uptime_seconds)}
+                  </div>
+                  <div>
+                    <span className="font-medium text-foreground">
+                      {t("memory")}:
+                    </span>{" "}
+                    {metrics.memory_mb} MB
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </>

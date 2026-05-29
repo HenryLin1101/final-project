@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { Role } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { SAFETY_REPORTS_QUEUE } from './queue-names';
+import { MetricsService } from '../metrics/metrics.service';
 
 const EMPTY_COUNTS = {
   waiting: 0,
@@ -22,6 +23,7 @@ export class QueueAdminController {
   constructor(
     @InjectQueue(SAFETY_REPORTS_QUEUE)
     private readonly queue: Queue,
+    private readonly metrics: MetricsService,
   ) {}
 
   @Get('stats')
@@ -48,5 +50,10 @@ export class QueueAdminController {
       enabled: true,
       counts: { ...EMPTY_COUNTS, ...counts },
     };
+  }
+
+  @Get('metrics-summary')
+  metricsSummary() {
+    return this.metrics.summary();
   }
 }

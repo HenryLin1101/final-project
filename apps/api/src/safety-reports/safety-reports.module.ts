@@ -5,6 +5,7 @@ import { SafetyReportsController } from './safety-reports.controller';
 import { SafetyReportsProcessor } from './safety-reports.processor';
 import { ScopeModule } from '../scope/scope.module';
 import { AuditModule } from '../audit/audit.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { SAFETY_REPORTS_QUEUE } from '../queues/queue-names';
 import { QueueAdminController } from '../queues/queue-admin.controller';
 
@@ -22,6 +23,7 @@ export class SafetyReportsModule {
         imports: [
           ScopeModule,
           AuditModule,
+          MetricsModule,
           BullModule.registerQueue({ name: SAFETY_REPORTS_QUEUE }),
         ],
         controllers: [SafetyReportsController, QueueAdminController],
@@ -31,7 +33,7 @@ export class SafetyReportsModule {
 
     return {
       module: SafetyReportsModule,
-      imports: [ScopeModule, AuditModule],
+      imports: [ScopeModule, AuditModule, MetricsModule],
       controllers: [SafetyReportsController, QueueAdminController],
       providers: [
         SafetyReportsService,
