@@ -46,7 +46,7 @@
     "title": "Dashboard",
     "subtitle": "View active events, notifications, and role-based quick actions.",
     "greeting": "Hello, {name}",
-    "viewEvents": "View Events",
+    "tapToView": "Tap to view",
     "createEvent": "Create Event",
     "eventManagement": "Event Management",
     "userManagement": "User Management",
@@ -63,7 +63,8 @@
     "title": "Events",
     "subtitle": "Shows events visible to your role.",
     "cardTitle": "Events",
-    "cardDescription": "Click a row to view details, stats, and reports."
+    "cardDescription": "Click a row to view details, stats, and reports.",
+    "cardDescriptionEmployee": "Click a row to view details and your report status."
   },
   "stats": {
     "total": "Expected",
@@ -80,6 +81,8 @@
     "reminderSent": "Sent.",
     "myReport": "My Report",
     "myReportDescription": "Your latest report status for this event.",
+    "myReportDescriptionEmployee": "Check whether you have successfully reported for this event.",
+    "reportSubmitted": "You have successfully reported for this event.",
     "statusLabel": "Status: ",
     "messageLabel": "Message: ",
     "notReported": "Not yet reported.",

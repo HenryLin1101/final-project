@@ -239,12 +239,14 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
     const s = getSession();
     if (!s) router.replace("/login");
     else if (s.user.role !== "ADMIN") router.replace("/dashboard");
+    else setCurrentUserId(s.user.id);
   }, [router]);
 
   const enabled = mounted && getSession()?.user.role === "ADMIN";
@@ -381,13 +383,15 @@ export default function AdminUsersPage() {
                             >
                               {tc("edit")}
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setConfirmDeleteId(u.id)}
-                            >
-                              {tc("delete")}
-                            </Button>
+                            {u.id !== currentUserId && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setConfirmDeleteId(u.id)}
+                              >
+                                {tc("delete")}
+                              </Button>
+                            )}
                           </span>
                         )}
                       </TableCell>

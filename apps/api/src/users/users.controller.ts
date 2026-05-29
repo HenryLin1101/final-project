@@ -11,6 +11,10 @@ import {
 import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
 import { Roles } from '../common/decorators/roles.decorator';
+import {
+  CurrentUser,
+  AuthUser,
+} from '../common/decorators/current-user.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -35,7 +39,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.users.remove(id);
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.users.remove(user.id, id);
   }
 }

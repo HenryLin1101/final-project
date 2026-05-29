@@ -46,7 +46,7 @@
     "title": "儀表板",
     "subtitle": "檢視進行中事件、通知與依角色提供的快捷操作。",
     "greeting": "您好，{name}",
-    "viewEvents": "查看事件",
+    "tapToView": "點擊查看",
     "createEvent": "建立事件",
     "eventManagement": "事件管理",
     "userManagement": "使用者管理",
@@ -63,7 +63,8 @@
     "title": "事件列表",
     "subtitle": "依角色顯示可見範圍內的緊急事件。",
     "cardTitle": "事件",
-    "cardDescription": "點選列以查看詳情、統計與回報。"
+    "cardDescription": "點選列以查看詳情、統計與回報。",
+    "cardDescriptionEmployee": "點選列以查看詳情與您的回報狀態。"
   },
   "stats": {
     "total": "應回報人數",
@@ -80,6 +81,8 @@
     "reminderSent": "已送出。",
     "myReport": "我的回報",
     "myReportDescription": "此事件下您的最新回報狀態。",
+    "myReportDescriptionEmployee": "確認您是否已成功回報此事件。",
+    "reportSubmitted": "您已成功回報此事件。",
     "statusLabel": "狀態：",
     "messageLabel": "說明：",
     "notReported": "尚未回報。",

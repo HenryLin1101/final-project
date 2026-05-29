@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
-import { apiFetch, getSession } from "@/lib/api";
+import { apiFetch, getSession, type StoredSession } from "@/lib/api";
 import { StatusBadge } from "@/components/status-badge";
 import {
   Card,
@@ -35,16 +35,20 @@ export default function EventsPage() {
   const t = useTranslations("events");
   const tc = useTranslations("common");
   const [mounted, setMounted] = useState(false);
+  const [session, setSession] = useState<StoredSession | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    if (!getSession()) router.replace("/login");
+    const s = getSession();
+    setSession(s);
+    if (!s) router.replace("/login");
+    else if (s.user.role === "ADMIN") router.replace("/admin/events");
   }, [router]);
 
   const { data: events, isLoading } = useQuery({
     queryKey: ["events"],
     queryFn: () => apiFetch<EventRow[]>("/events"),
-    enabled: mounted && !!getSession(),
+    enabled: mounted && session != null && session.user.role !== "ADMIN",
   });
 
   return (
@@ -57,7 +61,11 @@ export default function EventsPage() {
         <Card>
           <CardHeader>
             <CardTitle>{t("cardTitle")}</CardTitle>
-            <CardDescription>{t("cardDescription")}</CardDescription>
+            <CardDescription>
+              {session?.user.role === "EMPLOYEE"
+                ? t("cardDescriptionEmployee")
+                : t("cardDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading && <div className="text-sm text-muted-foreground">{tc("loading")}</div>}

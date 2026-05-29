@@ -100,7 +100,6 @@ function EventStatCard({ event }: { event: EventRow }) {
 export default function DashboardPage() {
   const router = useRouter();
   const t = useTranslations("dashboard");
-  const tn = useTranslations("notifications");
 
   useEffect(() => {
     if (!getSession()) router.replace("/login");
@@ -133,6 +132,7 @@ export default function DashboardPage() {
   const activeEvents = allEvents?.filter((e) => e.status === "ACTIVE") ?? [];
   const activeCount = activeEvents.length;
   const unreadCount = notifications?.filter((n) => !n.readAt).length ?? 0;
+  const eventsListHref = me?.role === "ADMIN" ? "/admin/events" : "/events";
 
   return (
     <AppShell>
@@ -144,8 +144,8 @@ export default function DashboardPage() {
 
         {me && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Link href="/events">
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+            <Link href={eventsListHref}>
+              <Card className="cursor-pointer transition-colors hover:bg-muted/50">
                 <CardHeader className="pb-2">
                   <CardDescription>{t("activeEvents")}</CardDescription>
                   <CardTitle
@@ -154,11 +154,12 @@ export default function DashboardPage() {
                   >
                     {activeCount}
                   </CardTitle>
+                  <CardDescription className="text-xs">{t("tapToView")}</CardDescription>
                 </CardHeader>
               </Card>
             </Link>
             <Link href="/notifications">
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+              <Card className="cursor-pointer transition-colors hover:bg-muted/50">
                 <CardHeader className="pb-2">
                   <CardDescription>{t("unreadNotifications")}</CardDescription>
                   <CardTitle
@@ -167,6 +168,7 @@ export default function DashboardPage() {
                   >
                     {unreadCount}
                   </CardTitle>
+                  <CardDescription className="text-xs">{t("tapToView")}</CardDescription>
                 </CardHeader>
               </Card>
             </Link>
@@ -181,45 +183,28 @@ export default function DashboardPage() {
                 {me.email} · {me.role} · {me.department.name}
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Link href="/events" className={cn(buttonVariants())}>
-                {t("viewEvents")}
-              </Link>
-              <Link
-                href="/notifications"
-                className={cn(buttonVariants({ variant: "outline" }))}
-              >
-                {tn("title")}
-              </Link>
-              {me.role === "ADMIN" && (
-                <>
-                  <Link
-                    href="/admin/events"
-                    className={cn(buttonVariants({ variant: "outline" }))}
-                  >
-                    {t("eventManagement")}
-                  </Link>
-                  <Link
-                    href="/admin/events/new"
-                    className={cn(buttonVariants({ variant: "outline" }))}
-                  >
-                    {t("createEvent")}
-                  </Link>
-                  <Link
-                    href="/admin/users"
-                    className={cn(buttonVariants({ variant: "outline" }))}
-                  >
-                    {t("userManagement")}
-                  </Link>
-                  <Link
-                    href="/admin/audit"
-                    className={cn(buttonVariants({ variant: "outline" }))}
-                  >
-                    {t("auditLog")}
-                  </Link>
-                </>
-              )}
-            </CardContent>
+            {me.role === "ADMIN" && (
+              <CardContent className="flex flex-wrap gap-2">
+                <Link
+                  href="/admin/events/new"
+                  className={cn(buttonVariants())}
+                >
+                  {t("createEvent")}
+                </Link>
+                <Link
+                  href="/admin/users"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  {t("userManagement")}
+                </Link>
+                <Link
+                  href="/admin/audit"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  {t("auditLog")}
+                </Link>
+              </CardContent>
+            )}
           </Card>
         )}
 

@@ -43,16 +43,18 @@ export function AppHeader() {
           <Link href="/dashboard" className="px-2 py-2 font-semibold">
             {t("brand")}
           </Link>
-          <Link
-            href="/events"
-            className={`px-2 py-2 transition-colors ${
-              pathname.startsWith("/events")
-                ? "text-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t("events")}
-          </Link>
+          {session?.user.role !== "ADMIN" && (
+            <Link
+              href="/events"
+              className={`px-2 py-2 transition-colors ${
+                pathname.startsWith("/events")
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t("events")}
+            </Link>
+          )}
           <Link
             href="/notifications"
             className={`px-2 py-2 transition-colors ${

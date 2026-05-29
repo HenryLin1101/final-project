@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -135,8 +135,24 @@ describe('UsersService', () => {
   });
 
   describe('remove()', () => {
+    it('throws ForbiddenException when deleting own account', async () => {
+      await expect(service.remove('user-1', 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prismaUser.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when user does not exist', async () => {
+      prismaUser.findUnique.mockResolvedValue(null);
+
+      await expect(service.remove('admin-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prismaUser.delete).not.toHaveBeenCalled();
+    });
+
     it('deletes the user and returns ok', async () => {
-      const result = await service.remove('user-1');
+      const result = await service.remove('admin-1', 'user-1');
 
       expect(prismaUser.delete).toHaveBeenCalledWith({
         where: { id: 'user-1' },

@@ -80,6 +80,7 @@ export default function EventDetailPage() {
   const ts = useTranslations("stats");
   const tc = useTranslations("common");
   const te = useTranslations("events");
+  const ta = useTranslations("adminEvents");
   const session = typeof window !== "undefined" ? getSession() : null;
 
   useEffect(() => {
@@ -101,7 +102,10 @@ export default function EventDetailPage() {
   const { data: stats } = useQuery({
     queryKey: ["event", eventId, "stats"],
     queryFn: () => apiFetch<Stats>(`/events/${eventId}/stats`),
-    enabled: !!eventId && !!session,
+    enabled:
+      !!eventId &&
+      !!session &&
+      (me?.role === "ADMIN" || me?.role === "MANAGER"),
   });
 
   const { data: myReport } = useQuery({
@@ -143,7 +147,10 @@ export default function EventDetailPage() {
       <div className="space-y-6">
         <Breadcrumb
           items={[
-            { label: te("title"), href: "/events" },
+            {
+              label: me?.role === "ADMIN" ? ta("title") : te("title"),
+              href: me?.role === "ADMIN" ? "/admin/events" : "/events",
+            },
             { label: event?.title ?? tc("event") },
           ]}
         />
@@ -170,7 +177,7 @@ export default function EventDetailPage() {
             )}
         </div>
 
-        {stats && (
+        {stats && (me?.role === "ADMIN" || me?.role === "MANAGER") && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <StatCard label={ts("total")} value={stats.total} />
             <StatCard label={ts("responded")} value={stats.responded} color="var(--info)" />
@@ -212,7 +219,11 @@ export default function EventDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle>{t("myReport")}</CardTitle>
-              <CardDescription>{t("myReportDescription")}</CardDescription>
+              <CardDescription>
+                {me?.role === "EMPLOYEE"
+                  ? t("myReportDescriptionEmployee")
+                  : t("myReportDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {myReport ? (
@@ -221,6 +232,7 @@ export default function EventDetailPage() {
                     {t("statusLabel")}<StatusBadge status={myReport.status} />
                   </p>
                   {myReport.message && <p>{t("messageLabel")}{myReport.message}</p>}
+                  <p className="pt-1 text-muted-foreground">{t("reportSubmitted")}</p>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">{t("notReported")}</p>
@@ -229,7 +241,7 @@ export default function EventDetailPage() {
           </Card>
         )}
 
-        {reports && (
+        {reports && me?.role !== "EMPLOYEE" && (
           <Card>
             <CardHeader>
               <CardTitle>

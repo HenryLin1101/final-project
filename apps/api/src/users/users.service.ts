@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -81,7 +82,14 @@ export class UsersService {
     return this.omitPassword(updated);
   }
 
-  async remove(id: string) {
+  async remove(actorId: string, id: string) {
+    if (actorId === id) {
+      throw new ForbiddenException('Cannot delete your own account');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException();
+    }
     await this.prisma.user.delete({ where: { id } });
     return { ok: true };
   }
