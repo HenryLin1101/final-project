@@ -1,10 +1,38 @@
 import { NestFactory } from '@nestjs/core';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import * as basicAuth from 'express-basic-auth';
 import { AppModule } from './app.module';
+import { SAFETY_REPORTS_QUEUE } from './queues/queue-names';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: true, credentials: true });
+
+  // BullMQ dashboard — mounted as Express middleware so it bypasses the Nest
+  // setGlobalPrefix (kept at /admin/queues, not /api/v1/admin/queues) and the
+  // ValidationPipe / Guards. Protected with HTTP Basic Auth.
+  const safetyQueue = app.get<Queue>(getQueueToken(SAFETY_REPORTS_QUEUE));
+  const serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath('/admin/queues');
+  createBullBoard({
+    queues: [new BullMQAdapter(safetyQueue)],
+    serverAdapter,
+  });
+  app.use(
+    '/admin/queues',
+    basicAuth({
+      users: { admin: process.env.QUEUE_DASHBOARD_PASSWORD ?? 'admin' },
+      challenge: true,
+      realm: 'safety-api-queues',
+    }),
+    serverAdapter.getRouter(),
+  );
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

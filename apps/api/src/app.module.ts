@@ -18,6 +18,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { HealthModule } from './health/health.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { QueueModule } from './queues/queue.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { HttpMetricsInterceptor } from './metrics/http-metrics.interceptor';
@@ -37,6 +38,7 @@ import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storag
     }),
     PrismaModule,
     RedisModule,
+    QueueModule,
     AuditModule,
     ScopeModule,
     AuthModule,

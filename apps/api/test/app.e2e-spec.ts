@@ -8,9 +8,11 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import * as request from 'supertest';
 import * as bcrypt from 'bcrypt';
+import { getQueueToken } from '@nestjs/bullmq';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
+import { SAFETY_REPORTS_QUEUE } from '../src/queues/queue-names';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 
@@ -116,10 +118,12 @@ function redisTestDouble() {
 describe('API (e2e)', () => {
   let app: INestApplication;
   let prismaDouble: ReturnType<typeof createPrismaTestDouble>;
+  let queueAdd: jest.Mock;
 
   beforeAll(async () => {
     const validPasswordHash = await bcrypt.hash('Password123!', 10);
     prismaDouble = createPrismaTestDouble(validPasswordHash);
+    queueAdd = jest.fn().mockResolvedValue({ id: 'job-mock-1' });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -128,6 +132,8 @@ describe('API (e2e)', () => {
       .useValue(prismaDouble)
       .overrideProvider(RedisService)
       .useValue(redisTestDouble())
+      .overrideProvider(getQueueToken(SAFETY_REPORTS_QUEUE))
+      .useValue({ add: queueAdd })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -301,7 +307,8 @@ describe('API (e2e)', () => {
 
   // ── Happy paths ────────────────────────────────────────────────────────────
 
-  it('POST /api/v1/events/evt-1/reports returns 201 when EMPLOYEE submits SAFE report', async () => {
+  it('POST /api/v1/events/evt-1/reports returns 202 and enqueues a job when EMPLOYEE submits SAFE report', async () => {
+    queueAdd.mockClear();
     const token = signTestToken({
       sub: 'emp-1',
       email: 'employee1@demo.com',
@@ -313,9 +320,20 @@ describe('API (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'SAFE' });
 
-    expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ id: 'rpt-1', status: 'SAFE' });
-    expect(prismaDouble.safetyReport.upsert).toHaveBeenCalled();
-    expect(prismaDouble.auditLog.create).toHaveBeenCalled();
+    expect(res.status).toBe(202);
+    expect(res.body).toMatchObject({
+      status: 'accepted',
+      jobId: 'job-mock-1',
+      eventId: 'evt-1',
+      submitted: { status: 'SAFE' },
+    });
+    expect(queueAdd).toHaveBeenCalledWith(
+      'submit',
+      expect.objectContaining({
+        eventId: 'evt-1',
+        dto: { status: 'SAFE' },
+      }),
+      expect.any(Object),
+    );
   });
 });

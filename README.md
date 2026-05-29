@@ -215,7 +215,7 @@ PLAYWRIGHT_BASE_URL=http://localhost pnpm --filter web test:e2e
 | `GET /api/v1/events/:id/reports` | EMPLOYEE token | 403（僅 ADMIN 可查全公司） |
 | `POST /api/v1/events/:id/reports` | ADMIN token | 403（ADMIN 不能提交回報） |
 | `GET /api/v1/events/:id/reports/team` | EMPLOYEE token | 403（僅 MANAGER） |
-| `POST /api/v1/events/:id/reports` | EMPLOYEE token + ACTIVE 事件 | 201 + 回報物件 |
+| `POST /api/v1/events/:id/reports` | EMPLOYEE token + ACTIVE 事件 | 202 + `{ status: "accepted", jobId, eventId, submitted }`（背景由 BullMQ worker 寫入 DB） |
 
 ---
 
@@ -333,7 +333,16 @@ kubectl get pods -n safety-demo -w
 
 - **UI/UX（已實作）**：語意色彩系統（CSS 變數 `--success`/`--warning`/`--info`，含深色模式）；`StatusBadge` 元件統一全站狀態顯示；`Breadcrumb` 元件套用於所有二、三層頁面；Dashboard 摘要卡（進行中事件數、未讀通知數）；緊急回報頁改為大型卡片選擇器；Header 導覽 active 狀態與觸控目標強化；通知頁空狀態引導；Admin 欄位、角色 badge、稽核 action badge 分色；全站日期格式統一（`2026/05/17`）；修正所有頁面 SSR/Client hydration mismatch；**頁面淡入滑動過渡動畫**（`@keyframes page-fade-in`，0.22s ease-out，套用於 AppShell `<main>`）；**語言切換器重設計**（Globe 圖示 + `中文 · EN` 文字切換，移除邊框 segmented control）。
 - **i18n**：前端已實作繁體中文 / English 雙語（`next-intl` v4，URL-based locale routing，Header 語言切換器）。後端錯誤訊息與通知內文可進一步改為 i18n template key。
-- **高流量防護（已實作）**：API 以 `@nestjs/throttler` + Redis-backed storage 實現速率限制——全域 60 req/60s、登入 5 req/60s、安全回報 10 req/60s；`/health`、`/metrics` 排除限流。Lua script 確保 INCR + PEXPIRE 原子性。Redis 不可用時 graceful degradation（允許所有請求，不拋 500）。
+- **高流量防護（三層防禦，已實作）**：
+  1. **入口層 — 速率限制**：`@nestjs/throttler` + Redis-backed storage——全域 60 req/60s、登入 5 req/60s、安全回報 10 req/60s；`/health`、`/metrics`、`/admin/queues` 排除限流。Lua script 確保 INCR + PEXPIRE 原子性。Redis 不可用時 graceful degradation（允許所有請求，不拋 500）。
+  2. **接收層 — 訊息佇列**：`POST /events/:id/reports` 透過 **BullMQ (Redis-backed)** 異步化——API 在 50ms 內回 `202 Accepted`（含 `jobId`），DB 寫入與稽核交給 worker。員工體感「回報成功」與底層寫入解耦；retry 3 次（exponential backoff），完成保留 100 筆、失敗保留 500 筆便於除錯。
+  3. **處理層 — Worker**：`@Processor(SAFETY_REPORTS_QUEUE)` 與 API 同 Pod 啟動，HPA 觸發擴容時 worker 也跟著擴展（未來可拆獨立 Deployment 達成完全獨立的水平擴展與故障隔離）。
+- **佇列儀表板**：`/admin/queues`（HTTP Basic Auth，帳號 `admin`，密碼來自 `QUEUE_DASHBOARD_PASSWORD`，預設亦為 `admin`）由 [`@bull-board/express`](https://github.com/felixmosh/bull-board) 以 Express middleware 形式掛在 Nest 之上，bypass `api/v1` 前綴，可即時觀察 `safety-reports` queue 的 waiting / active / completed / failed / delayed 數量。
+- **負載測試（k6）**：[`infra/k6/safety-report-burst.js`](infra/k6/safety-report-burst.js) 模擬事件爆發，ramping VUs 0 → 500 → 0，驗證 `202` 回應率與 p95 < 800ms：
+  ```bash
+  BASE_URL=http://34.146.138.147 EVENT_ID=<active-evt-id> TOKEN=<jwt> \
+    k6 run infra/k6/safety-report-burst.js
+  ```
 - **讀取快取（已實作）**：`GET /events` 依角色分為三組 key（`cache:events:list:ADMIN/MANAGER/EMPLOYEE`，TTL 30s）；`GET /departments` 單一 key（TTL 300s）。寫入時（create/update/delete）立即 invalidate，確保 Admin 狀態變更即時可見。
 - **可靠性 / SPOF**：Compose 為單節點展示；生產環境可改 **多 API 副本 + Nginx upstream**、**DB 主從**、**Redis Sentinel**、**K8s readiness/liveness**（對應本專案 `/health`、`/health/ready`）。
 - **認證**：示範使用 `localStorage` 存 JWT；生產建議 **HttpOnly Cookie** 或 **BFF**。

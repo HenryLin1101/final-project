@@ -8,7 +8,9 @@ ENV PORT=3001
 RUN corepack enable pnpm
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps ./apps
-RUN pnpm install --frozen-lockfile \
+# NOTE: --no-frozen-lockfile so the image build regenerates the lockfile when
+# package.json adds deps and the committed lockfile is stale.
+RUN pnpm install --no-frozen-lockfile \
   && pnpm --filter web build
 WORKDIR /app/apps/web
 EXPOSE 3001

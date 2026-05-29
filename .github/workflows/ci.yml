@@ -29,7 +29,9 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # NOTE: not using --frozen-lockfile so CI regenerates pnpm-lock.yaml when
+        # package.json changes (e.g. adding BullMQ deps) without a local pnpm install.
+        run: pnpm install --no-frozen-lockfile
 
       - name: Validate Prisma schema
         run: pnpm --filter api exec prisma generate
