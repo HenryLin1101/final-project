@@ -243,22 +243,35 @@ PLAYWRIGHT_BASE_URL=http://localhost pnpm --filter web test:e2e
 
 ### k6 負載測試情境（Layer 3）
 
+**`business.js`**（日常混合負載，10 VU）：
+
 ```
 Stage 1：0 → 10 VU，暖機 30s
 Stage 2：10 VU  穩定負載 1 分鐘
 Stage 3：10 → 0 VU  冷卻 10s
 ```
 
-**情境**：`health_check` → `admin_workflow`（登入 + 列事件 + 查統計）→ `employee_report`（登入 + 回報 + 查自己回報）→ `notifications`（查通知）
+登入在 `setup()` 各執行一次（admin / manager / employee），避免觸發登入 rate limit（5 req/min/IP）。
 
-**Threshold（門檻）**：
+| 情境 | 對應前端 | 主要 API |
+|------|----------|----------|
+| `health_check` | — | `GET /health` |
+| `admin_workflow` | `/admin/events` → `/events/:id` | `me`、events、stats、**全公司 reports**（ADMIN 不回報） |
+| `manager_workflow` | `/events/:id` | `me`、events、stats、**reports/me**、**reports/team**（直屬下屬） |
+| `employee_workflow` | `/events/:id` | `me`、events、**reports/me**（低機率抽樣 POST → 202） |
+| `notifications` | `/dashboard`、通知頁 | `GET /notifications` |
+
+**`safety-report-burst.js`**：緊急事件大量回報（高併發 POST → 202 / BullMQ），與 business 互補。
+
+**Threshold（business.js）**：
 
 | 指標 | 門檻 |
 |------|------|
-| `http_req_failed` | < 1% |
+| `http_req_failed{load:read}` | < 1%（讀取為主） |
 | `http_req_duration` p(95) | < 800ms |
 | `report_submit_duration` p(95) | < 1000ms |
-| `login_error_rate` | < 5% |
+| `login_error_rate` | < 1% |
+| `reports_accepted_202` | ≥ 1（抽樣至少一筆 202） |
 
 ---
 

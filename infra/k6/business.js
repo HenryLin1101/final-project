@@ -1,53 +1,58 @@
 /**
- * k6 業務情境負載測試腳本
+ * k6 業務情境負載測試 — 對齊目前前端三角色流程
  *
- * 執行方式（需先啟動完整 stack）：
- *   docker compose up --build -d
- *   BASE_URL=http://localhost k6 run infra/k6/business.js
+ * ADMIN:  /dashboard → /admin/events → /events/:id（全公司 stats + reports，不回報）
+ * MANAGER: /dashboard → /events → /events/:id（stats + 自己的回報 + 轄下 reports/team）
+ * EMPLOYEE: /dashboard → /events → /events/:id（僅 reports/me，可提交回報）
  *
- * 若沒有 seed 資料，可指定不同帳密：
- *   BASE_URL=http://localhost ADMIN_EMAIL=admin@demo.com ADMIN_PASS=Password123! k6 run infra/k6/business.js
+ * 執行（需完整 stack 或 GKE API）：
+ *   BASE_URL=http://<api-ip> k6 run infra/k6/business.js
+ *
+ * 帳密可覆寫（預設為 seed）：
+ *   ADMIN_EMAIL=admin@demo.com MANAGER_EMAIL=manager@demo.com EMP_EMAIL=employee1@demo.com
  */
 import http from "k6/http";
 import { check, group, sleep } from "k6";
-import { Rate, Trend } from "k6/metrics";
+import { Counter, Rate, Trend } from "k6/metrics";
 
-// ── 自訂指標 ─────────────────────────────────────────────────────────────────
 const loginErrors = new Rate("login_error_rate");
 const reportSubmitDuration = new Trend("report_submit_duration", true);
+const reportsAccepted = new Counter("reports_accepted_202");
 
-// ── 測試設定 ─────────────────────────────────────────────────────────────────
 export const options = {
   stages: [
-    { duration: "30s", target: 10 }, // Stage 1: 暖機，0→10 VU
-    { duration: "1m", target: 10 },  // Stage 2: 穩定負載，10 VU 持續 1 分鐘
-    { duration: "10s", target: 0 },  // Stage 3: 冷卻
+    { duration: "30s", target: 10 },
+    { duration: "1m", target: 10 },
+    { duration: "10s", target: 0 },
   ],
   thresholds: {
-    http_req_failed: ["rate<0.01"],           // 失敗率 < 1%
-    http_req_duration: ["p(95)<800"],         // p95 回應時間 < 800ms
-    report_submit_duration: ["p(95)<1000"],   // 回報 API p95 < 1000ms
-    login_error_rate: ["rate<0.05"],          // 登入失敗率 < 5%
+    // 讀取請求與 submit 分開評估（submit 可能因 10 req/min 偶發 429）
+    "http_req_failed{load:read}": ["rate<0.01"],
+    http_req_duration: ["p(95)<800"],
+    report_submit_duration: ["p(95)<1000"],
+    login_error_rate: ["rate<0.01"],
+    reports_accepted_202: ["count>=1"],
   },
 };
 
 const BASE = __ENV.BASE_URL || "http://localhost";
 const ADMIN_EMAIL = __ENV.ADMIN_EMAIL || "admin@demo.com";
 const ADMIN_PASS = __ENV.ADMIN_PASS || "Password123!";
+const MANAGER_EMAIL = __ENV.MANAGER_EMAIL || "manager@demo.com";
+const MANAGER_PASS = __ENV.MANAGER_PASS || "Password123!";
 const EMP_EMAIL = __ENV.EMP_EMAIL || "employee1@demo.com";
 const EMP_PASS = __ENV.EMP_PASS || "Password123!";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-// ── 工具函式 ─────────────────────────────────────────────────────────────────
-function login(email, password) {
+function loginOnce(email, password) {
   const res = http.post(
     `${BASE}/api/v1/auth/login`,
     JSON.stringify({ email, password }),
-    { headers: JSON_HEADERS },
+    { headers: JSON_HEADERS, tags: { name: "login" } },
   );
   const ok = check(res, {
-    "login 200": (r) => r.status === 200,
+    "login 201": (r) => r.status === 201,
     "login has access_token": (r) => {
       try {
         return !!JSON.parse(r.body).access_token;
@@ -65,94 +70,171 @@ function authHeaders(token) {
   return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 }
 
-// ── 主要情境 ─────────────────────────────────────────────────────────────────
-export default function () {
-  // ── 情境 A：健康檢查（基準線）
+function parseEvents(body) {
+  try {
+    const data = JSON.parse(body);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function firstActiveEvent(events) {
+  return events.find((e) => e.status === "ACTIVE") || null;
+}
+
+/** 各角色 token 在 setup 取得一次，避免每輪反覆登入觸發 5 req/min 限制 */
+export function setup() {
+  const adminToken = loginOnce(ADMIN_EMAIL, ADMIN_PASS);
+  const managerToken = loginOnce(MANAGER_EMAIL, MANAGER_PASS);
+  const employeeToken = loginOnce(EMP_EMAIL, EMP_PASS);
+  if (!adminToken || !managerToken || !employeeToken) {
+    throw new Error("setup login failed — check BASE_URL and seed accounts");
+  }
+  return { adminToken, managerToken, employeeToken };
+}
+
+export default function (data) {
   group("health_check", function () {
-    const res = http.get(`${BASE}/health`);
+    const res = http.get(`${BASE}/health`, { tags: { name: "health", load: "read" } });
     check(res, { "health 200": (r) => r.status === 200 });
     sleep(0.1);
   });
 
-  // ── 情境 B：ADMIN 登入 → 建立事件 → 查看所有回報
+  // ADMIN：/admin/events 列表 → 事件詳情（stats + 全公司 reports）
   group("admin_workflow", function () {
-    const token = login(ADMIN_EMAIL, ADMIN_PASS);
-    if (!token) return;
+    const token = data.adminToken;
+    const headers = authHeaders(token);
 
-    // 列出所有事件
-    const eventsRes = http.get(`${BASE}/api/v1/events`, {
-      headers: authHeaders(token),
-    });
+    const meRes = http.get(`${BASE}/api/v1/auth/me`, { headers, tags: { name: "auth_me", load: "read" } });
+    check(meRes, { "admin me 200": (r) => r.status === 200 });
+
+    const eventsRes = http.get(`${BASE}/api/v1/events`, { headers, tags: { name: "list_events", load: "read" } });
     check(eventsRes, { "admin list events 200": (r) => r.status === 200 });
 
-    // 若有事件，查看第一個的全公司回報統計
-    let events;
-    try { events = JSON.parse(eventsRes.body); } catch { events = []; }
-    if (Array.isArray(events) && events.length > 0) {
-      const eventId = events[0].id;
-      const statsRes = http.get(`${BASE}/api/v1/events/${eventId}/stats`, {
-        headers: authHeaders(token),
-      });
-      check(statsRes, { "admin stats 200": (r) => r.status === 200 });
+    const active = firstActiveEvent(parseEvents(eventsRes.body));
+    if (!active) {
+      sleep(0.3);
+      return;
     }
 
-    sleep(0.5);
+    const detailRes = http.get(`${BASE}/api/v1/events/${active.id}`, {
+      headers,
+      tags: { name: "event_detail", load: "read" },
+    });
+    check(detailRes, { "admin event detail 200": (r) => r.status === 200 });
+
+    const statsRes = http.get(`${BASE}/api/v1/events/${active.id}/stats`, {
+      headers,
+      tags: { name: "event_stats", load: "read" },
+    });
+    check(statsRes, { "admin stats 200": (r) => r.status === 200 });
+
+    const allReportsRes = http.get(`${BASE}/api/v1/events/${active.id}/reports`, {
+      headers,
+      tags: { name: "admin_all_reports", load: "read" },
+    });
+    check(allReportsRes, { "admin all reports 200": (r) => r.status === 200 });
+
+    sleep(0.3);
   });
 
-  // ── 情境 C：EMPLOYEE 登入 → 查看事件 → 提交安全回報
-  group("employee_report", function () {
-    const token = login(EMP_EMAIL, EMP_PASS);
-    if (!token) return;
+  // MANAGER：事件詳情（stats + 自己的回報 + 轄下 direct reports）
+  group("manager_workflow", function () {
+    const token = data.managerToken;
+    const headers = authHeaders(token);
 
-    // 列出進行中事件
-    const eventsRes = http.get(`${BASE}/api/v1/events`, {
-      headers: authHeaders(token),
+    const meRes = http.get(`${BASE}/api/v1/auth/me`, { headers, tags: { name: "auth_me", load: "read" } });
+    check(meRes, { "manager me 200": (r) => r.status === 200 });
+
+    const eventsRes = http.get(`${BASE}/api/v1/events`, { headers, tags: { name: "list_events", load: "read" } });
+    check(eventsRes, { "manager list events 200": (r) => r.status === 200 });
+
+    const active = firstActiveEvent(parseEvents(eventsRes.body));
+    if (!active) {
+      sleep(0.3);
+      return;
+    }
+
+    const statsRes = http.get(`${BASE}/api/v1/events/${active.id}/stats`, {
+      headers,
+      tags: { name: "event_stats", load: "read" },
     });
+    check(statsRes, { "manager stats 200": (r) => r.status === 200 });
+
+    const myReportRes = http.get(`${BASE}/api/v1/events/${active.id}/reports/me`, {
+      headers,
+      tags: { name: "my_report", load: "read" },
+    });
+    check(myReportRes, { "manager my report 200": (r) => r.status === 200 });
+
+    const teamRes = http.get(`${BASE}/api/v1/events/${active.id}/reports/team`, {
+      headers,
+      tags: { name: "team_reports", load: "read" },
+    });
+    check(teamRes, { "manager team reports 200": (r) => r.status === 200 });
+
+    sleep(0.3);
+  });
+
+  // EMPLOYEE：事件詳情（僅自己的回報，不含 stats / team）
+  group("employee_workflow", function () {
+    const token = data.employeeToken;
+    const headers = authHeaders(token);
+
+    const meRes = http.get(`${BASE}/api/v1/auth/me`, { headers, tags: { name: "auth_me", load: "read" } });
+    check(meRes, { "employee me 200": (r) => r.status === 200 });
+
+    const eventsRes = http.get(`${BASE}/api/v1/events`, { headers, tags: { name: "list_events", load: "read" } });
     check(eventsRes, { "employee list events 200": (r) => r.status === 200 });
 
-    let events;
-    try { events = JSON.parse(eventsRes.body); } catch { events = []; }
+    const active = firstActiveEvent(parseEvents(eventsRes.body));
+    if (!active) {
+      sleep(0.3);
+      return;
+    }
 
-    const activeEvents = Array.isArray(events)
-      ? events.filter((e) => e.status === "ACTIVE")
-      : [];
+    const myReportRes = http.get(`${BASE}/api/v1/events/${active.id}/reports/me`, {
+      headers,
+      tags: { name: "my_report", load: "read" },
+    });
+    check(myReportRes, { "employee my report 200": (r) => r.status === 200 });
 
-    if (activeEvents.length > 0) {
-      const eventId = activeEvents[0].id;
-
-      // 提交安全回報
+    // 回報 API 限 10 req/min/IP；業務測試以讀取為主，低機率抽樣提交（大量提交請用 safety-report-burst.js）
+    if (Math.random() < 0.08) {
       const status = Math.random() > 0.2 ? "SAFE" : "NEED_HELP";
       const start = Date.now();
       const reportRes = http.post(
-        `${BASE}/api/v1/events/${eventId}/reports`,
+        `${BASE}/api/v1/events/${active.id}/reports`,
         JSON.stringify({ status }),
-        { headers: authHeaders(token) },
+        { headers, tags: { name: "submit_report" } },
       );
       reportSubmitDuration.add(Date.now() - start);
 
-      check(reportRes, {
-        "employee submit report 200 or 400": (r) =>
-          r.status === 200 || r.status === 201 || r.status === 400,
+      const accepted = check(reportRes, {
+        "employee submit 202": (r) => r.status === 202,
+        "employee submit has jobId": (r) => {
+          try {
+            return !!JSON.parse(r.body).jobId;
+          } catch {
+            return false;
+          }
+        },
       });
-
-      // 查自己的回報
-      const myReportRes = http.get(
-        `${BASE}/api/v1/events/${eventId}/reports/me`,
-        { headers: authHeaders(token) },
-      );
-      check(myReportRes, { "employee get own report 200": (r) => r.status === 200 });
+      if (accepted) reportsAccepted.add(1);
     }
 
     sleep(0.3);
   });
 
-  // ── 情境 D：查看通知（所有角色皆可）
+  // 所有角色：通知列表（Dashboard 未讀數）
   group("notifications", function () {
-    const token = login(EMP_EMAIL, EMP_PASS);
-    if (!token) return;
+    const token = data.employeeToken;
+    const headers = authHeaders(token);
 
     const notifRes = http.get(`${BASE}/api/v1/notifications`, {
-      headers: authHeaders(token),
+      headers,
+      tags: { name: "notifications", load: "read" },
     });
     check(notifRes, { "list notifications 200": (r) => r.status === 200 });
 
