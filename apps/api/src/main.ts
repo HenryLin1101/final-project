@@ -5,10 +5,7 @@ import { Queue } from 'bullmq';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const basicAuth = require('express-basic-auth') as (
-  options: Record<string, unknown>,
-) => (req: unknown, res: unknown, next: () => void) => void;
+import * as basicAuth from 'express-basic-auth';
 import { AppModule } from './app.module';
 import { SAFETY_REPORTS_QUEUE } from './queues/queue-names';
 
