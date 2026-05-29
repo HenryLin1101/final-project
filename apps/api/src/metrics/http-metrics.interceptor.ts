@@ -20,7 +20,15 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     }>();
     const res = context.switchToHttp().getResponse<{ statusCode: number }>();
     const startMs = Date.now();
-    if (req.url.startsWith('/metrics')) return next.handle();
+    // Skip self-referential paths: /metrics (Prometheus scrape feedback loop)
+    // and /admin/queues/* (the admin monitor page polls these every 2s and
+    // would otherwise inflate its own counters).
+    if (
+      req.url.startsWith('/metrics') ||
+      req.url.startsWith('/api/v1/admin/queues')
+    ) {
+      return next.handle();
+    }
 
     const record = (statusCode: string) => {
       const method = req.method;
