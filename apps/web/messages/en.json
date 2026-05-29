@@ -148,6 +148,12 @@
   "audit": {
     "title": "Audit Log",
     "summary": "{total} total (showing latest {count})",
+    "paginatedSummary": "Showing {start}–{end} of {total}",
+    "emptySummary": "No records yet",
+    "pageSize": "Per page",
+    "pageOf": "Page {current} of {total}",
+    "prev": "Prev",
+    "next": "Next",
     "timeColumn": "Time",
     "actorColumn": "Actor",
     "actionColumn": "Action",
