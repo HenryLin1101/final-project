@@ -15,7 +15,7 @@
 import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { loadTokens, tokenForVu, bearerHeader } from "./lib/accounts.js";
+import { parseTokens, tokenForVu, bearerHeader } from "./lib/accounts.js";
 
 const loginErrors = new Rate("login_error_rate");
 const reportSubmitDuration = new Trend("report_submit_duration", true);
@@ -42,6 +42,9 @@ const ADMIN_PASS = __ENV.ADMIN_PASS || "Password123!";
 const MANAGER_EMAIL = __ENV.MANAGER_EMAIL || "manager@demo.com";
 const MANAGER_PASS = __ENV.MANAGER_PASS || "Password123!";
 const TOKENS_FILE = __ENV.TOKENS_FILE || "/scripts/load-test-tokens-business.json";
+
+// open() must be called in the init stage (global scope), not inside setup()
+const _rawEmployeeTokens = open(TOKENS_FILE);
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -83,14 +86,14 @@ function firstActiveEvent(events) {
   return events.find((e) => e.status === "ACTIVE") || null;
 }
 
-/** setup: admin/manager 用 HTTP login（各 1 次）；employee tokens 從檔案讀取 */
+/** setup: admin/manager 用 HTTP login（各 1 次）；employee tokens 從 init 階段讀取的字串 parse */
 export function setup() {
   const adminToken = loginOnce(ADMIN_EMAIL, ADMIN_PASS);
   const managerToken = loginOnce(MANAGER_EMAIL, MANAGER_PASS);
   if (!adminToken || !managerToken) {
     throw new Error("setup login failed — check BASE_URL and seed accounts");
   }
-  const employeeTokens = loadTokens(TOKENS_FILE);
+  const employeeTokens = parseTokens(_rawEmployeeTokens);
   console.log(`Loaded ${employeeTokens.length} employee tokens for 67 VUs.`);
   return { adminToken, managerToken, employeeTokens };
 }

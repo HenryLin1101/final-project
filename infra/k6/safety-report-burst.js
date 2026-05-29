@@ -20,12 +20,15 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { loadTokens, tokenForVu, bearerHeader } from './lib/accounts.js';
+import { parseTokens, tokenForVu, bearerHeader } from './lib/accounts.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost';
 const EVENT_ID = __ENV.EVENT_ID || '';
 const TOKENS_FILE = __ENV.TOKENS_FILE || '/scripts/load-test-tokens.json';
 const PEAK_VUS = parseInt(__ENV.PEAK_VUS || '6767', 10);
+
+// open() must be called in the init stage (global scope), not inside setup()
+const _rawTokens = open(TOKENS_FILE);
 
 const accepted = new Counter('reports_accepted_202');
 const rejected = new Counter('reports_rejected_non_202');
@@ -56,7 +59,7 @@ export function setup() {
   if (!EVENT_ID) {
     throw new Error('EVENT_ID env var is required. Set an ACTIVE event ID.');
   }
-  const tokens = loadTokens(TOKENS_FILE);
+  const tokens = parseTokens(_rawTokens);
   console.log(`Loaded ${tokens.length} tokens for ${PEAK_VUS} VUs.`);
   return { tokens };
 }

@@ -1,33 +1,50 @@
 /**
  * k6 shared helper — token pool management
  *
+ * k6 restricts `open()` to the init stage (global scope).
+ * Call `open()` at the top level of your script, then pass the raw
+ * string to `parseTokens()` — either in setup() or at global scope.
+ *
  * Usage in k6 scripts:
- *   import { loadTokens, tokenForVu } from './lib/accounts.js';
+ *   import { parseTokens, tokenForVu, bearerHeader } from './lib/accounts.js';
+ *
+ *   // Init stage — global scope
+ *   const _rawTokens = open(__ENV.TOKENS_FILE || '/scripts/load-test-tokens.json');
  *
  *   export function setup() {
- *     const tokens = loadTokens(__ENV.TOKENS_FILE);
+ *     const tokens = parseTokens(_rawTokens);
  *     return { tokens };
  *   }
  *
  *   export default function (data) {
- *     const { token } = tokenForVu(data.tokens, __VU);
+ *     const account = tokenForVu(data.tokens, __VU);
  *     ...
  *   }
  */
 
 /**
- * Load token list from a JSON file (must be mounted into the k6 container).
+ * Parse a JSON string (previously read with open()) into a token array.
  * Returns array of { email, role, token }.
  *
- * @param {string} filePath - absolute path inside the container, e.g. /scripts/load-test-tokens.json
+ * @param {string} rawJson - content of the tokens JSON file
  */
-export function loadTokens(filePath) {
-  const raw = open(filePath);
-  const tokens = JSON.parse(raw);
+export function parseTokens(rawJson) {
+  const tokens = JSON.parse(rawJson);
   if (!Array.isArray(tokens) || tokens.length === 0) {
-    throw new Error(`No tokens found in ${filePath}`);
+    throw new Error('No tokens found in token JSON');
   }
   return tokens;
+}
+
+/**
+ * @deprecated Use parseTokens(open(filePath)) at global scope instead.
+ * Kept for reference — calling open() inside a function throws in k6.
+ */
+export function loadTokens(_filePath) {
+  throw new Error(
+    'loadTokens() cannot be called inside setup() or default().\n' +
+    'Use: const _raw = open(filePath) at global scope, then parseTokens(_raw).',
+  );
 }
 
 /**
