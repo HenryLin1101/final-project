@@ -181,6 +181,43 @@ describe('UsersService', () => {
 
       expect(prismaUser.findUnique).toHaveBeenCalledTimes(1);
     });
+
+    it('forces departmentId=null and managerId=null when role is updated to ADMIN', async () => {
+      prismaUser.update.mockResolvedValue(mockAdmin);
+
+      await service.update('user-1', { role: Role.ADMIN, departmentId: 'dept-1', managerId: 'mgr-1' });
+
+      expect(prismaUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            departmentId: null,
+            managerId: null,
+          }),
+        }),
+      );
+    });
+
+    it('forces departmentId=null when existing user is ADMIN and role not changed', async () => {
+      prismaUser.findUnique.mockResolvedValue(mockAdmin);
+      prismaUser.update.mockResolvedValue(mockAdmin);
+
+      await service.update('admin-1', { name: 'New Admin Name' });
+
+      expect(prismaUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            departmentId: null,
+            managerId: null,
+          }),
+        }),
+      );
+    });
+
+    it('throws BadRequestException when explicitly setting departmentId to null for non-ADMIN', async () => {
+      await expect(
+        service.update('user-1', { departmentId: null }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('remove()', () => {

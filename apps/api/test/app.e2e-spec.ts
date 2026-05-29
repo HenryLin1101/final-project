@@ -25,6 +25,14 @@ function createPrismaTestDouble(validPasswordHash: string) {
     email: 'admin@demo.com',
     name: 'Admin',
     role: Role.ADMIN,
+    departmentId: null,
+    managerId: null,
+  };
+  const managerUser = {
+    id: 'mgr-1',
+    email: 'manager@demo.com',
+    name: 'Manager',
+    role: Role.MANAGER,
     departmentId: 'dept-1',
     managerId: null,
   };
@@ -59,6 +67,13 @@ function createPrismaTestDouble(validPasswordHash: string) {
                 passwordHash: validPasswordHash,
               });
             }
+            if (where.id === 'mgr-1' || where.email === 'manager@demo.com') {
+              return Promise.resolve({
+                ...managerUser,
+                passwordHash: validPasswordHash,
+                department: { id: 'dept-1', name: 'Eng' },
+              });
+            }
             if (where.id === 'emp-1' || where.email === 'employee1@demo.com') {
               return Promise.resolve({
                 ...employeeUser,
@@ -69,6 +84,9 @@ function createPrismaTestDouble(validPasswordHash: string) {
             return Promise.resolve(null);
           },
         ),
+      findMany: jest.fn().mockResolvedValue([
+        { ...employeeUser, department: { id: 'dept-1', name: 'Eng' } },
+      ]),
     },
     event: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -343,5 +361,49 @@ describe('API (e2e)', () => {
       }),
       expect.any(Object),
     );
+  });
+
+  it('GET /api/v1/events/evt-1/reports/team returns 200 with report list for MANAGER', async () => {
+    const token = signTestToken({
+      sub: 'mgr-1',
+      email: 'manager@demo.com',
+      role: Role.MANAGER,
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/events/evt-1/reports/team')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('GET /api/v1/events/evt-1/reports returns 200 with full report list for ADMIN', async () => {
+    const token = signTestToken({
+      sub: 'admin-1',
+      email: 'admin@demo.com',
+      role: Role.ADMIN,
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/events/evt-1/reports')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('DELETE /api/v1/users/:id returns 403 when ADMIN tries to delete their own account', async () => {
+    const token = signTestToken({
+      sub: 'admin-1',
+      email: 'admin@demo.com',
+      role: Role.ADMIN,
+    });
+
+    const res = await request(app.getHttpServer())
+      .delete('/api/v1/users/admin-1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
   });
 });
